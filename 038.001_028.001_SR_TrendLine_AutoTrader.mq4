@@ -5,7 +5,11 @@
 
 #define     _MAGICNUMBER               28
 
-extern string xxx = "Názov objektu pre AUTOTRADER:";
+//doriesit aktivaciu - deaktivaciu trendline
+//doriesit max jeden order buy a jeden sell
+//doriesit mail notifikaciu + nejake zlepsenia: posileat aj screenshot a tak
+
+extern string xxx = "Nazov objektu pre AUTOTRADER:";
 extern string _BUYSTOP   = "BUY STOP";
 extern string _BUYLIMIT  = "BUY LIMIT";
 extern string _SELLSTOP  = "SELL STOP";
@@ -90,7 +94,9 @@ int     _STRATEGY_TIMEFRAME           = 1;
 //------------------------------------------------------------------
 //------------------------------------------------------------------
 //------------------------------------------------------------------
-
+#define     _MAIL_NOTIFICATION_FROM       "turtle.vpscustomer.Comment"
+#define     _MAIL_NOTIFICATION_TO         "radorybar@gmail.com"
+//#define     _MAIL_NOTIFICATION_FROM       turtle.vpscustomer.Comment
 
 //------------------------------------------------------------------
 //------------------------------------------------------------------
@@ -290,7 +296,7 @@ void OpenPosition(bool SHORTLONG, double LOTS, double STOPLOSS, double TAKEPROFI
          Print("Bad OrderOpen() TAKEPROFIT defined. Price Bid was: ", Bid, " and TAKEPROFIT was: ", TAKEPROFIT, " . TAKEPROFIT set to minimal value: ", Bid - _MIN_TAKEPROFIT_DISTANCE*Point);
          TAKEPROFIT = Bid - _MIN_TAKEPROFIT_DISTANCE*Point;
       }
-      OrderSend(Symbol(), OP_SELL, LOTS, Bid, SLIPPAGE, STOPLOSS, TAKEPROFIT, "SELL - Resistance reversal", MAGICNUMBER, 0, Red);
+      OrderSend(Symbol(), OP_SELL, LOTS, Bid, SLIPPAGE, STOPLOSS, TAKEPROFIT, "", MAGICNUMBER, 0, Red);
    }
    else
    {
@@ -306,7 +312,7 @@ void OpenPosition(bool SHORTLONG, double LOTS, double STOPLOSS, double TAKEPROFI
          Print("Bad OrderOpen() TAKEPROFIT defined. Price Bid was: ", Ask, " and TAKEPROFIT was: ", TAKEPROFIT, " . TAKEPROFIT set to minimal value: ", Bid + _MIN_TAKEPROFIT_DISTANCE*Point);
          TAKEPROFIT = Ask + _MIN_TAKEPROFIT_DISTANCE*Point;
       }
-      OrderSend(Symbol(), OP_BUY, LOTS, Ask, SLIPPAGE, STOPLOSS, TAKEPROFIT, "BUY - Support reversal", MAGICNUMBER, 0, Blue);
+      OrderSend(Symbol(), OP_BUY, LOTS, Ask, SLIPPAGE, STOPLOSS, TAKEPROFIT, "", MAGICNUMBER, 0, Blue);
    }
    
    LastBarTraded = Time[0];
@@ -988,9 +994,25 @@ datetime getNthZIGZAGTimeOld(string _SYMBOL, int _TIMEFRAME, bool UpperLower, in
    return (result);
 }
 //------------------------------------------------------------------
-bool MailNotification(string From, string To, string Subject, string Text)
+bool MailNotification(string TO, string SUBJECT, string TEXT, string ATTACHMENT_PATH = "", string ATTACHMENT_TITLE = "")
 {
+   gSendMail ("default", TO, SUBJECT, TEXT, ATTACHMENT_PATH, ATTACHMENT_TITLE);
+}
+//------------------------------------------------------------------
+string MakeScreenShot()
+{
+   int X_SIZE = 800;
+   int Y_SIZE = 600;
    
+   string ResultFileName = "";
+   string FileName;
+   
+   FileName = StringConcatenate(TimeToStr(TimeCurrent(), TIME_DATE), "_", TimeToStr(TimeCurrent(), TIME_SECONDS));
+   
+   if(WindowScreenShot(FileName, X_SIZE, Y_SIZE))
+      ResultFileName = FileName;
+      
+   return(ResultFileName);
 }
 //------------------------------------------------------------------
 //------------------------------------------------------------------
@@ -1026,6 +1048,16 @@ double Strategy_028(int COMMAND)
       {
 //         if(!OpenNewBar(_TIMEFRAME))
 //            break;
+         
+//if any long order already openned - return
+         for(i = 0; i < OrdersTotal(); i++)
+         {
+            OrderSelect(i, SELECT_BY_POS);
+            if(OrderMagicNumber() != _MAGICNUMBER)
+               continue;
+            if(OrderType() == OP_BUY )
+               return(result);
+         }
          
          // iterate all Objects
          for(i = 0; i < ObjectsTotal(); i++)
@@ -1069,6 +1101,16 @@ double Strategy_028(int COMMAND)
       {
 //         if(!OpenNewBar(_TIMEFRAME))
 //            break;
+
+//if any short order already openned - return
+         for(i = 0; i < OrdersTotal(); i++)
+         {
+            OrderSelect(i, SELECT_BY_POS);
+            if(OrderMagicNumber() != _MAGICNUMBER)
+               continue;
+            if(OrderType() == OP_SELL )
+               return(result);
+         }
 
          // iterate all Objects
          for(i = 0; i < ObjectsTotal(); i++)
