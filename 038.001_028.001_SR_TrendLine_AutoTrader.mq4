@@ -276,16 +276,16 @@ bool ParseActions(string ActionString, string& ParsedAction[])
    ArrayResize(ParsedAction, 0);
    
    int i = 0;
+   
    while(i < _MAX_ACTION_LANGUAGE_ITEMS)
    {
+      ArrayResize(ParsedAction, i + 1);
 
 //Parse first action language item and its parameters in rest ActionString
 //next delimiter position is:
-      int NextDelimiterIndex = StringFind(ActionString, _ACTION_LANGUAGE_DELIMITER);
+      int NextDelimiterIndex = StringFind(ActionString, _ACTION_LANGUAGE_DELIMITER) + 1;
 //Parsed acion is whole string up to delimiter position      
       ParsedAction[i] = StringTrimLeft(StringTrimRight(StringSubstr(ActionString, 0, NextDelimiterIndex - 1)));
-//The rest of action string for next parse cycle, without already parsed actions ,blanks and delimiters
-      ActionString = StringTrimLeft(StringTrimRight(StringSubstr(ActionString, NextDelimiterIndex)));
 
 //Check if parsed string contains any valid action or non action keyword
       bool ValidAcionLanguageItem = false;
@@ -305,6 +305,13 @@ bool ParseActions(string ActionString, string& ParsedAction[])
          
       if(!ValidAcionLanguageItem)
          break;
+
+//The rest of action string for next parse cycle, without already parsed actions ,blanks and delimiters
+      if(NextDelimiterIndex != 0)
+         ActionString = StringTrimLeft(StringTrimRight(StringSubstr(ActionString, NextDelimiterIndex)));
+      else
+         break;                  
+
       i++;
    }
 
@@ -312,6 +319,14 @@ bool ParseActions(string ActionString, string& ParsedAction[])
 //if action string contains parts without any valid action language item, finish with error
    if(i == _MAX_ACTION_LANGUAGE_ITEMS || !ValidAcionLanguageItem)
       result = false;
+
+/*
+   if(_DEBUG)
+   {
+      Print("ParsedAction");
+      DebugStringArray(ParsedAction);
+   }
+*/
 
    return(result);
 }
@@ -327,6 +342,7 @@ bool ExecuteActions(string ParsedAction[], bool AskBid)
    for(i = 0; i < ArraySize(ParsedAction); i++)
    {
       if(StringFind(ParsedAction[i], ORDER_ID) > -1)
+      {
          if(StrToInteger(ParseActionText(ParsedAction[i])) > 0)
          {
             OrderID = StrToInteger(ParseActionText(ParsedAction[i]));
@@ -335,6 +351,13 @@ bool ExecuteActions(string ParsedAction[], bool AskBid)
          {
             return(false);
          }
+      }
+   }
+
+   if(_DEBUG)
+   {
+      Print("ParsedAction");
+      DebugStringArray(ParsedAction);
    }
 
 // BUY
@@ -459,7 +482,8 @@ string ParseActionText(string ActionItem)
       if(StringFind(ActionItem, _ACTION_LANGUAGE_COMMANDS[j]) > -1)
       {
 //if action keyword found, cut it from the result action text
-         result = StringTrimLeft(StringTrimRight(StringSubstr(ActionItem, StringFind(ActionItem, _ACTION_LANGUAGE_COMMANDS[j]) + StringLen(_ACTION_LANGUAGE_COMMANDS[j]))));
+         result = StringTrimLeft(StringTrimRight(StringSubstr(ActionItem, StringFind(ActionItem, _ACTION_LANGUAGE_COMMANDS[j]) + StringLen(_ACTION_LANGUAGE_COMMANDS[j]) + 1)));
+         
 //if after action keyword follows one of these letters, cut it also - it is a kind of delimiter for better readibility
          if(
             StringFind(result, ":") == 0 || 
@@ -473,7 +497,7 @@ string ParseActionText(string ActionItem)
          if(StringFind(ActionItem, _ACTION_LANGUAGE_ITEMS[j]) > -1)
          {
 //if action keyword found, cut it from the result action text
-            result = StringTrimLeft(StringTrimRight(StringSubstr(ActionItem, StringFind(ActionItem, _ACTION_LANGUAGE_COMMANDS[j]) + StringLen(_ACTION_LANGUAGE_COMMANDS[j]))));
+            result = StringTrimLeft(StringTrimRight(StringSubstr(ActionItem, StringFind(ActionItem, _ACTION_LANGUAGE_COMMANDS[j]) + StringLen(_ACTION_LANGUAGE_COMMANDS[j]) + 1)));
 //if after action keyword follows one of these letters, cut it also - it is a kind of delimiter for better readibility
             if(
                StringFind(result, ":") == 0 || 
@@ -481,7 +505,7 @@ string ParseActionText(string ActionItem)
             )
             result = StringSubstr(result, 1);
          }
-
+//   Print(result);
    return(result);
 }
 
@@ -852,3 +876,11 @@ void ErrorCheckup()
       SendPredefinedRecipientMail(StringConcatenate("Error number ", error, " occured!"), StringConcatenate("Error number ", error, " occured! \nError description: ", ErrorDescription(error)));
    }
 }
+
+//------------------------------------------------------------------
+void DebugStringArray(string arr[])
+{
+   for(int i = 0; i < ArraySize(arr); i++)
+      Print(i, ":", arr[i]);
+}
+
