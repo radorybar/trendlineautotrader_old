@@ -5,6 +5,8 @@
 #include <stderror.mqh>
 #include <stdlib.mqh>
 
+bool        _DEBUG =                   true;
+
 #define     _MAGICNUMBER               1000
 
 //------------------------------------------------------------------
