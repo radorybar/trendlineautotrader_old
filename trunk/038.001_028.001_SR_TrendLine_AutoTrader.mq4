@@ -2,22 +2,10 @@
 #property link      "slacktrader"
 
 #include <gMail.mqh>
+#include <stderror.mqh>
+#include <stdlib.mqh>
 
-#define     _MAGICNUMBER               28
-
-//doriesit aktivaciu - deaktivaciu trendline
-//doriesit max jeden order buy a jeden sell
-//doriesit mail notifikaciu + nejake zlepsenia: posileat aj screenshot a tak
-
-extern string xxx = "Nazov objektu pre AUTOTRADER:";
-extern string _BUYSTOP   = "BUY STOP";
-extern string _BUYLIMIT  = "BUY LIMIT";
-extern string _SELLSTOP  = "SELL STOP";
-extern string _SELLLIMIT = "SELL LIMIT";
-extern string _BUYTP     = "BUY CLOSE TARGET PROFIT";
-extern string _SELLTP    = "SELL CLOSE TARGET PROFIT";
-extern string _BUYSL     = "BUY CLOSE STOPLOSS";
-extern string _SELLSL    = "SELL CLOSE STOPLOSS";
+#define     _MAGICNUMBER               1000
 
 //------------------------------------------------------------------
 //------------------------------------------------------------------
@@ -26,26 +14,8 @@ extern string _SELLSL    = "SELL CLOSE STOPLOSS";
 //------------------------------------------------------------------
 //------------------------------------------------------------------
 //------------------------------------------------------------------
-int   _STRATEGY_NUMBER              = 28;
-
 int   _MIN_STOPLOSS_DISTANCE        = 10;
 int   _MIN_TAKEPROFIT_DISTANCE      = 10;
-
-// 1 - PERIOD_M1
-// 2 - PERIOD_M5
-// 3 - PERIOD_M15
-// 4 - PERIOD_M30
-// 5 - PERIOD_H1
-// 6 - PERIOD_H4
-// 7 - PERIOD_D1
-// 8 - PERIOD_W1
-// 9 - PERIOD_MN1
-
-// _STRATEGY_TIMEFRAME_CHOICE
-string  poznamka1 = "0 - vyber timeframe podla dropdown menu - premenna _STRATEGY_TIMEFRAME sa ignoruje";
-string  poznamka2 = "1 - vyber timeframe podla kodu timeframe 1 - 9";
-int     _STRATEGY_TIMEFRAME_CHOICE    = 0;
-int     _STRATEGY_TIMEFRAME           = 1;
 
 //------------------------------------------------------------------
 //------------------------------------------------------------------
@@ -61,32 +31,8 @@ int     _STRATEGY_TIMEFRAME           = 1;
 
 #define     _MINLOTS                            0.1
 #define     _MAXLOTS                            5
-//------------------------------------------------------------------
-//------------------------------------------------------------------
-//------------------------------------------------------------------
-// Signal Modul                                                     
-//------------------------------------------------------------------
-//------------------------------------------------------------------
-//------------------------------------------------------------------
-#define     _OPEN_LONG                    1
-#define     _OPEN_SHORT                   2
-#define     _CLOSE_LONG                   3
-#define     _CLOSE_SHORT                  4
-#define     _GET_LONG_STOPLOSS_PRICE      5
-#define     _GET_SHORT_STOPLOSS_PRICE     6
-#define     _GET_LONG_TAKEPROFIT_PRICE    7
-#define     _GET_SHORT_TAKEPROFIT_PRICE   8
-#define     _GET_LOTS                     9
-#define     _GET_TRAILED_STOPLOSS_PRICE   10
-#define     _GET_TRAILED_TAKEPROFIT_PRICE 11
-#define     _GET_TRADED_TIMEFRAME         12
-#define     _OPEN_PENDING_BUY_STOP        13
-#define     _OPEN_PENDING_SELL_STOP       14
-#define     _OPEN_PENDING_BUY_LIMIT       15
-#define     _OPEN_PENDING_SELL_LIMIT      16
-#define     _GET_PENDING_BUY_STOP_PRICE   17
-#define     _GET_PENDING_SELL_STOP_PRICE  18
-#define     _GET_PENDING_ORDER_EXPIRATION 19
+#define     _DEFAULT_LOTS                       0.1
+#define     _DEFAULT_SLIPPAGE                   3
 //------------------------------------------------------------------
 //------------------------------------------------------------------
 //------------------------------------------------------------------
@@ -94,10 +40,9 @@ int     _STRATEGY_TIMEFRAME           = 1;
 //------------------------------------------------------------------
 //------------------------------------------------------------------
 //------------------------------------------------------------------
-#define     _MAIL_NOTIFICATION_FROM       "turtle.vpscustomer.Comment"
-#define     _MAIL_NOTIFICATION_TO         "radorybar@gmail.com"
-//#define     _MAIL_NOTIFICATION_FROM       turtle.vpscustomer.Comment
-
+#define     _MAIL_NOTIFICATION_FROM          "turtle.vpscustomer.Comment"
+#define     _MAIL_NOTIFICATION_TO            "radorybar@gmail.com"
+#define     _SENT_MAIL_NOTIFI_ON_ERROR       0
 //------------------------------------------------------------------
 //------------------------------------------------------------------
 //------------------------------------------------------------------
@@ -106,11 +51,78 @@ int     _STRATEGY_TIMEFRAME           = 1;
 //------------------------------------------------------------------
 //------------------------------------------------------------------
 
+//define all important action language keywords
+#define BUY_STOP				     "BUY_STOP"
+#define BUY_LIMIT               "BUY_LIMIT"
+#define SELL_STOP               "SELL_STOP"
+#define SELL_LIMIT              "SELL_LIMIT"
+#define SEND_MAIL               "SEND_MAIL"
+#define SEND_SCREENSHOT         "SEND_SCREENSHOT"
+#define ORDER_CLOSE             "ORDER_CLOSE"
+#define OBJECT_ACTIVATE         "OBJECT_ACTIVATE"
+#define OBJECT_DEACTIVATE       "OBJECT_DEACTIVATE"
+#define ORDER_MOVE_SL           "ORDER_MOVE_SL"
+#define ORDER_MOVE_TP           "ORDER_MOVE_TP"
+#define ORDER_ID                "ORDER_ID"
 
+//All object that are relevant for autotarder
+int       _OBJECT_TYPES[] = 
+{
+   OBJ_TREND, 
+   OBJ_HLINE
+};
 
-static datetime LastBarTraded = 0;
+//ACTION LANGUAGE Definition
+//All actions possible for use in object description
+string   _ACTION_LANGUAGE_COMMANDS[] = 
+{
+   BUY_STOP,
+//usage: BUY_STOP*ORDER_ID new odred id[*SEND_MAIL [text of mail][*SEND_SCREENSHOT [text for screenshot]]]
 
-int   LONGMA = 140;
+   BUY_LIMIT,
+//usage: BUY_LIMIT*ORDER_ID new odred id[*SEND_MAIL [text of mail][*SEND_SCREENSHOT [text for screenshot]]]
+
+   SELL_STOP,
+//usage: SELL_STOP*ORDER_ID new odred id[*SEND_MAIL [text of mail][*SEND_SCREENSHOT [text for screenshot]]]
+
+   SELL_LIMIT,
+//usage: SELL_LIMIT*ORDER_ID new odred id[*SEND_MAIL [text of mail][*SEND_SCREENSHOT [text for screenshot]]]
+
+   SEND_MAIL,
+//usage: SEND_MAIL [text of mail][*SEND_SCREENSHOT [text for screenshot]]]
+
+   SEND_SCREENSHOT,
+//usage: [*SEND_SCREENSHOT [text for screenshot]]
+
+   ORDER_CLOSE,
+//usage: ORDER_CLOSE*ORDER_ID odred id to close[*SEND_MAIL [text of mail][*SEND_SCREENSHOT [text for screenshot]]]
+
+   OBJECT_ACTIVATE,
+//usage: OBJECT_ACTIVATE object id to activate[*SEND_MAIL [text of mail][*SEND_SCREENSHOT [text for screenshot]]]
+
+   OBJECT_DEACTIVATE,
+//usage: OBJECT_DEACTIVATE object id to deactivate[*SEND_MAIL [text of mail][*SEND_SCREENSHOT [text for screenshot]]]
+
+   ORDER_MOVE_SL,
+//usage: ORDER_MOVE_SL value of new SL*ORDER_ID order id for new SL[*SEND_MAIL [text of mail][*SEND_SCREENSHOT [text for screenshot]]]
+
+   ORDER_MOVE_TP
+//usage: ORDER_MOVE_TP value of new TP*ORDER_ID order id for new TP[*SEND_MAIL [text of mail][*SEND_SCREENSHOT [text for screenshot]]]
+};
+
+//All other - non actions - possible for use in object description
+string   _ACTION_LANGUAGE_ITEMS[] = 
+{
+   "ORDER_ID"
+};
+
+string _ACTION_LANGUAGE_DELIMITER = "*";
+
+int _MAX_ACTION_LANGUAGE_ITEMS = 100;
+
+static double LASTASK;
+static double LASTBID;
+
 //------------------------------------------------------------------
 //------------------------------------------------------------------
 //------------------------------------------------------------------
@@ -118,89 +130,379 @@ int init()
 {
    _MIN_STOPLOSS_DISTANCE           = MarketInfo(Symbol(), MODE_STOPLEVEL);
    _MIN_TAKEPROFIT_DISTANCE         = MarketInfo(Symbol(), MODE_STOPLEVEL);
+   
+   LASTASK = Ask;
+   LASTBID = Bid;
 
    return(0);
 }
 int deinit()
 {
-   
    return(0);
 }
 
 int start()
 {
-   double            Stoploss          = 0;
-   double            TakeProfit        = 0;
+   int i = 0;
+   string RelevantObjectNames[];
+   string AskCrossedObjectNames[];
+   string BidCrossedObjectNames[];
+   string AskActionStrings[];
+   string BidActionStrings[];
+   string ParsedActions[];
    
-   if(LastBarTraded())
+   if(LASTASK == Ask && LASTBID == Bid)
       return(0);
-
-   if(OrdersTotal() > 0)
-   {
-      Stoploss = Strategy(_STRATEGY_NUMBER, _GET_TRAILED_STOPLOSS_PRICE);
-      TakeProfit = Strategy(_STRATEGY_NUMBER, _GET_TRAILED_TAKEPROFIT_PRICE);
    
-      if(Stoploss != 0 || TakeProfit != 0)
-         ModifyAllPositions(_MAGICNUMBER, Stoploss, TakeProfit);
+   //should return all object names - ids which are relevant for autotrader
+   if(!GetRelevantObjects(_OBJECT_TYPES, RelevantObjectNames))
+      return(1);
+   
+   //should return all object names - ids which were crossed by Ask price
+   if(!GetAskCrossedObjects(RelevantObjectNames, AskCrossedObjectNames))
+      return(2);
 
-      if(Strategy(_STRATEGY_NUMBER, _CLOSE_LONG) == 1)
-         CloseAllLongPositions(_MAGICNUMBER);
-      if(Strategy(_STRATEGY_NUMBER, _CLOSE_SHORT) == 1)
-         CloseAllShortPositions(_MAGICNUMBER);
+   //should return all object names - ids which were crossed by Bid price
+   if(!GetBidCrossedObjects(RelevantObjectNames, BidCrossedObjectNames))
+      return(3);
+
+   //should parse all Ask cross actions from all Ask crossed objects
+   if(!GetActionStrings(AskCrossedObjectNames, AskActionStrings))
+      return(4);
+   
+   //should parse all Bid cross actions from all Bid crossed objects
+   if(!GetActionStrings(BidCrossedObjectNames, BidActionStrings))
+      return(5);
+
+   //should execute all actions in pool
+   for(i = 0; i < ArraySize(AskActionStrings); i++)
+   {
+      if(ParseActions(AskActionStrings[i], ParsedActions))
+         ExecuteActions(ParsedActions, true);
+   }
+   for(i = 0; i < ArraySize(BidActionStrings); i++)
+   {
+      if(ParseActions(BidActionStrings[i], ParsedActions))
+         ExecuteActions(ParsedActions, false);
    }
    
-   if(!TradeAllowed(1))
-      return(0);
-
-   if(Strategy(_STRATEGY_NUMBER, _OPEN_LONG) == 1)
-      OpenPosition(false, Strategy(_STRATEGY_NUMBER, _GET_LOTS), Strategy(_STRATEGY_NUMBER, _GET_LONG_STOPLOSS_PRICE), Strategy(_STRATEGY_NUMBER, _GET_LONG_TAKEPROFIT_PRICE), 3, _MAGICNUMBER);
-   if(Strategy(_STRATEGY_NUMBER, _OPEN_SHORT) == 1)
-      OpenPosition(true, Strategy(_STRATEGY_NUMBER, _GET_LOTS), Strategy(_STRATEGY_NUMBER, _GET_SHORT_STOPLOSS_PRICE), Strategy(_STRATEGY_NUMBER, _GET_SHORT_TAKEPROFIT_PRICE), 3, _MAGICNUMBER);
-
-   if(Strategy(_STRATEGY_NUMBER, _OPEN_PENDING_BUY_STOP) == 1)
-      OpenPendingPosition(false, Strategy(_STRATEGY_NUMBER, _GET_LOTS), Strategy(_STRATEGY_NUMBER, _GET_PENDING_BUY_STOP_PRICE), Strategy(_STRATEGY_NUMBER, _GET_LONG_STOPLOSS_PRICE), Strategy(_STRATEGY_NUMBER, _GET_LONG_TAKEPROFIT_PRICE), 3, _MAGICNUMBER, Strategy(_STRATEGY_NUMBER, _GET_PENDING_ORDER_EXPIRATION));
-   if(Strategy(_STRATEGY_NUMBER, _OPEN_PENDING_SELL_STOP) == 1)
-      OpenPendingPosition(true, Strategy(_STRATEGY_NUMBER, _GET_LOTS), Strategy(_STRATEGY_NUMBER, _GET_PENDING_SELL_STOP_PRICE), Strategy(_STRATEGY_NUMBER, _GET_SHORT_STOPLOSS_PRICE), Strategy(_STRATEGY_NUMBER, _GET_SHORT_TAKEPROFIT_PRICE), 3, _MAGICNUMBER, Strategy(_STRATEGY_NUMBER, _GET_PENDING_ORDER_EXPIRATION));
+   LASTASK = Ask;
+   LASTBID = Bid;
 
    return(0);
 }
 //------------------------------------------------------------------
 //------------------------------------------------------------------
 //------------------------------------------------------------------
-// Trading allowed modul
+// Trendline order auto management modul
 //------------------------------------------------------------------
 //------------------------------------------------------------------
 //------------------------------------------------------------------
+bool GetRelevantObjects(int _OBJECT_TYPES[], string& RelevantObjectNames[])
+{
+   bool result = true;
+   ArrayResize(RelevantObjectNames, 0);
+   
+   for(int i = 0; i < ObjectsTotal(); i++)
+   {
+      for(int j = 0; j < ArraySize(_OBJECT_TYPES); j++)
+      {
+         if(ObjectType(ObjectName(i)) == _OBJECT_TYPES[j])
+         {
+            ArrayResize(RelevantObjectNames, ArraySize(RelevantObjectNames) + 1);
+            RelevantObjectNames[ArraySize(RelevantObjectNames) - 1] = ObjectName(i);
+         }
+      }
+   }
 
-//------------------------------------------------------------------
-// Last bar already traded
-//------------------------------------------------------------------
-bool LastBarTraded()
-{
-//Trade only once on each bar
-   if(LastBarTraded == Time[0])
-      return(true);
-   else
-      return(false);
+   return(result);
 }
-//------------------------------------------------------------------
-// First tick of a traded timeframe bar
-//------------------------------------------------------------------
-/*
-bool OpenNewBar()
+bool GetAskCrossedObjects(string RelevantObjectNames[], string& CrossedObjectNames[])
 {
-   if(iVolume(Symbol(), Strategy(_STRATEGY_NUMBER, _GET_TRADED_TIMEFRAME), 0) > 1)
-      return(false);
-   else
-      return(true);
+   bool result = true;
+
+   ArrayResize(CrossedObjectNames, 0);
+   
+   for(int i = 0; i < ArraySize(RelevantObjectNames); i++)
+   {
+      if(PriceCrossedValue(ObjectGetValueByShift(RelevantObjectNames[i], 0), true))
+      {
+         ArrayResize(CrossedObjectNames, ArraySize(CrossedObjectNames) + 1);
+         CrossedObjectNames[ArraySize(CrossedObjectNames) - 1] = RelevantObjectNames[i];
+      }
+   }
+
+   return(result);
 }
-*/
-bool OpenNewBar(int _TIMEFRAME)
+bool GetBidCrossedObjects(string RelevantObjectNames[], string& CrossedObjectNames[])
 {
-   if(iVolume(Symbol(), _TIMEFRAME, 0) > 1)
-      return(false);
+   bool result = true;
+   ArrayResize(CrossedObjectNames, 0);
+
+   for(int i = 0; i < ArraySize(RelevantObjectNames); i++)
+   {
+      if(PriceCrossedValue(ObjectGetValueByShift(RelevantObjectNames[i], 0), false))
+      {
+         ArrayResize(CrossedObjectNames, ArraySize(CrossedObjectNames) + 1);
+         CrossedObjectNames[ArraySize(CrossedObjectNames) - 1] = RelevantObjectNames[i];
+      }
+   }
+
+   return(result);
+}
+
+bool GetActionStrings(string CrossedObjectNames[], string& ActionStrings[])
+{
+   bool result = true;
+   ArrayResize(ActionStrings, 0);
+   
+   for(int i = 0; i < ArraySize(CrossedObjectNames); i++)
+   {
+      ArrayResize(ActionStrings, ArraySize(ActionStrings) + 1);
+      ActionStrings[i] = ObjectDescription(CrossedObjectNames[i]);
+   }
+
+   return(result);
+}
+
+
+bool ParseActions(string ActionString, string& ParsedAction[])
+{
+   bool result = true;
+   string RestActionString = "";
+   
+   ArrayResize(ParsedAction, 0);
+   
+   int i = 0;
+   while(i < _MAX_ACTION_LANGUAGE_ITEMS)
+   {
+
+//Parse first action language item and its parameters in rest ActionString
+//next delimiter position is:
+      int NextDelimiterIndex = StringFind(ActionString, _ACTION_LANGUAGE_DELIMITER);
+//Parsed acion is whole string up to delimiter position      
+      ParsedAction[i] = StringTrimLeft(StringTrimRight(StringSubstr(ActionString, 0, NextDelimiterIndex - 1)));
+//The rest of action string for next parse cycle, without already parsed actions ,blanks and delimiters
+      ActionString = StringTrimLeft(StringTrimRight(StringSubstr(ActionString, NextDelimiterIndex)));
+
+//Check if parsed string contains any valid action or non action keyword
+      bool ValidAcionLanguageItem = false;
+      for(int j = 0; j < ArraySize(_ACTION_LANGUAGE_COMMANDS); j++)
+         if(StringFind(ParsedAction[i], _ACTION_LANGUAGE_COMMANDS[j]) > -1)
+         {
+            ValidAcionLanguageItem = true;
+            break;
+         }
+      if(!ValidAcionLanguageItem)
+         for(j = 0; j < ArraySize(_ACTION_LANGUAGE_ITEMS); j++)
+            if(StringFind(ParsedAction[i], _ACTION_LANGUAGE_ITEMS[j]) > -1)
+            {
+               ValidAcionLanguageItem = true;
+               break;
+            }
+         
+      if(!ValidAcionLanguageItem)
+         break;
+      i++;
+   }
+
+//MAX _MAX_ACTION_LANGUAGE_ITEMS parsed, otherwise finish with error
+//if action string contains parts without any valid action language item, finish with error
+   if(i == _MAX_ACTION_LANGUAGE_ITEMS || !ValidAcionLanguageItem)
+      result = false;
+
+   return(result);
+}
+
+bool ExecuteActions(string ParsedAction[], bool AskBid)
+{
+   bool result = false;
+   int i = 0;
+   int OrderID = 0;
+
+//determine ORDER_ID of processed action, if there is any defined
+//if there is Order ID deined in action string - it has to be an integer value otherwise cancel action and return error
+   for(i = 0; i < ArraySize(ParsedAction); i++)
+   {
+      if(StringFind(ParsedAction[i], ORDER_ID) > -1)
+         if(StrToInteger(ParseActionText(ParsedAction[i])) > 0)
+         {
+            OrderID = StrToInteger(ParseActionText(ParsedAction[i]));
+         }
+         else
+         {
+            return(false);
+         }
+   }
+
+// BUY
+//if Ask price crossed
+   if(AskBid)
+   {
+      int OrderTicketNumber = 0;
+      if(Ask > LASTASK)
+         if(StringFind(ParsedAction[0], BUY_STOP) > -1)
+         {
+            OrderTicketNumber = OpenPosition(false, _DEFAULT_LOTS, 0, 0, _DEFAULT_SLIPPAGE, OrderID);
+            if(OrderTicketNumber < 0)
+               ErrorCheckup();
+            else
+               result = true;
+         }
+
+      if(Ask < LASTASK)
+         if(StringFind(ParsedAction[0], BUY_LIMIT) > -1)
+         {
+            OrderTicketNumber = OpenPosition(false, _DEFAULT_LOTS, 0, 0, _DEFAULT_SLIPPAGE, OrderID);
+            if(OrderTicketNumber < 0)
+               ErrorCheckup();
+            else
+               result = true;
+         }
+   }
+
+// SELL
+//if Bid price crossed
    else
-      return(true);
+   {
+      if(Bid < LASTBID)
+         if(StringFind(ParsedAction[0], SELL_STOP) > -1)
+         {
+            OrderTicketNumber = OpenPosition(true, _DEFAULT_LOTS, 0, 0, _DEFAULT_SLIPPAGE, OrderID);
+            if(OrderTicketNumber < 0)
+               ErrorCheckup();
+            else
+               result = true;
+         }
+
+      if(Bid > LASTBID)
+         if(StringFind(ParsedAction[0], SELL_LIMIT) > -1)
+         {
+            OrderTicketNumber = OpenPosition(true, _DEFAULT_LOTS, 0, 0, _DEFAULT_SLIPPAGE, OrderID);
+            if(OrderTicketNumber < 0)
+               ErrorCheckup();
+            else
+               result = true;
+         }
+   }
+   
+//ORDER_CLOSE
+   if(StringFind(ParsedAction[0], ORDER_CLOSE) > -1)
+   {
+      int NumberOfClosedPosition = 0;
+//if Ask price crossed
+      if(AskBid)
+      {
+         NumberOfClosedPosition = CloseAllLongPositions(OrderID);
+         if(NumberOfClosedPosition != 1)
+         {
+            SendPredefinedRecipientMail(StringConcatenate("Error closing position: ", OrderID), StringConcatenate("Error closing position: ", OrderID, " - number of closed position returned: ", NumberOfClosedPosition));
+         }
+         else
+            result = true;
+      }
+      else
+      {
+         NumberOfClosedPosition = CloseAllShortPositions(OrderID);
+         if(NumberOfClosedPosition != 1)
+         {
+            SendPredefinedRecipientMail(StringConcatenate("Error closing position: ", OrderID), StringConcatenate("Error closing position: ", OrderID, " - number of closed position returned: ", NumberOfClosedPosition));
+         }
+         else
+            result = true;
+      }
+   }
+
+   if(StringFind(ParsedAction[0], OBJECT_ACTIVATE) > -1)
+   {
+      
+   }
+
+   if(StringFind(ParsedAction[0], OBJECT_DEACTIVATE) > -1)
+   {
+      
+   }
+
+   if(StringFind(ParsedAction[0], ORDER_MOVE_SL) > -1)
+   {
+      
+   }
+
+   if(StringFind(ParsedAction[0], ORDER_MOVE_TP) > -1)
+   {
+      
+   }
+
+//SEND_MAIL   
+   if(StringFind(ParsedAction[0], SEND_MAIL) > -1)
+   {
+      SendPredefinedRecipientMail(ParseActionText(ParsedAction[0]), ParseActionText(ParsedAction[0]));
+   }
+
+//SEND_SCREENSHOT
+   if(StringFind(ParsedAction[0], SEND_SCREENSHOT) > -1)
+   {
+      SendPredefinedRecipientMail(ParseActionText(ParsedAction[0]), ParseActionText(ParsedAction[i]), MakeScreenShot(), ParseActionText(ParsedAction[0]));
+   }
+
+   return(result);
+}
+
+string ParseActionText(string ActionItem)
+{
+   string result = "";
+
+//search for all action keywords, and parse only text behind this keyword   
+   for(int j = 0; j < ArraySize(_ACTION_LANGUAGE_COMMANDS); j++)
+      if(StringFind(ActionItem, _ACTION_LANGUAGE_COMMANDS[j]) > -1)
+      {
+//if action keyword found, cut it from the result action text
+         result = StringTrimLeft(StringTrimRight(StringSubstr(ActionItem, StringFind(ActionItem, _ACTION_LANGUAGE_COMMANDS[j]) + StringLen(_ACTION_LANGUAGE_COMMANDS[j]))));
+//if after action keyword follows one of these letters, cut it also - it is a kind of delimiter for better readibility
+         if(
+            StringFind(result, ":") == 0 || 
+            StringFind(result, "-") == 0
+         )
+         result = StringSubstr(result, 1);
+      }
+//if still nop keyword has been found
+   if(StringLen(result) == 0)
+      for(j = 0; j < ArraySize(_ACTION_LANGUAGE_ITEMS); j++)
+         if(StringFind(ActionItem, _ACTION_LANGUAGE_ITEMS[j]) > -1)
+         {
+//if action keyword found, cut it from the result action text
+            result = StringTrimLeft(StringTrimRight(StringSubstr(ActionItem, StringFind(ActionItem, _ACTION_LANGUAGE_COMMANDS[j]) + StringLen(_ACTION_LANGUAGE_COMMANDS[j]))));
+//if after action keyword follows one of these letters, cut it also - it is a kind of delimiter for better readibility
+            if(
+               StringFind(result, ":") == 0 || 
+               StringFind(result, "-") == 0
+            )
+            result = StringSubstr(result, 1);
+         }
+
+   return(result);
+}
+
+bool PriceCrossedValue(double Value, bool AskBid)
+{
+   bool result = false;
+   
+   if(AskBid)
+   {
+      if(Ask >= Value && LASTASK <= Value)
+         result = true;
+      if(Ask <= Value && LASTASK >= Value)
+         result = true;
+   }
+   else
+   {
+      if(Bid <= Value && LASTBID >= Value)
+         result = true;
+      if(Bid >= Value && LASTBID <= Value)
+         result = true;
+   }
+
+   return(result);
 }
 //------------------------------------------------------------------
 // TradeAllowed function return true if trading is possible         
@@ -272,7 +574,7 @@ double GetLots(int MM_STRATEGY, int AMOUNT)
 //------------------------------------------------------------------
 //------------------------------------------------------------------
 //------------------------------------------------------------------
-// Order open modul
+// Order management modul
 //------------------------------------------------------------------
 //------------------------------------------------------------------
 //------------------------------------------------------------------
@@ -280,7 +582,7 @@ double GetLots(int MM_STRATEGY, int AMOUNT)
 //------------------------------------------------------------------------------------
 // Opens position according to arguments (short || long, amount of Lots to trade 
 //------------------------------------------------------------------------------------
-void OpenPosition(bool SHORTLONG, double LOTS, double STOPLOSS, double TAKEPROFIT, int SLIPPAGE, int MAGICNUMBER)
+int OpenPosition(bool SHORTLONG, double LOTS, double STOPLOSS, double TAKEPROFIT, int SLIPPAGE, int MAGICNUMBER)
 {
    if(SHORTLONG)
    {
@@ -296,7 +598,7 @@ void OpenPosition(bool SHORTLONG, double LOTS, double STOPLOSS, double TAKEPROFI
          Print("Bad OrderOpen() TAKEPROFIT defined. Price Bid was: ", Bid, " and TAKEPROFIT was: ", TAKEPROFIT, " . TAKEPROFIT set to minimal value: ", Bid - _MIN_TAKEPROFIT_DISTANCE*Point);
          TAKEPROFIT = Bid - _MIN_TAKEPROFIT_DISTANCE*Point;
       }
-      OrderSend(Symbol(), OP_SELL, LOTS, Bid, SLIPPAGE, STOPLOSS, TAKEPROFIT, "", MAGICNUMBER, 0, Red);
+      return(OrderSend(Symbol(), OP_SELL, LOTS, Bid, SLIPPAGE, STOPLOSS, TAKEPROFIT, "", MAGICNUMBER, 0, Red));
    }
    else
    {
@@ -312,10 +614,8 @@ void OpenPosition(bool SHORTLONG, double LOTS, double STOPLOSS, double TAKEPROFI
          Print("Bad OrderOpen() TAKEPROFIT defined. Price Bid was: ", Ask, " and TAKEPROFIT was: ", TAKEPROFIT, " . TAKEPROFIT set to minimal value: ", Bid + _MIN_TAKEPROFIT_DISTANCE*Point);
          TAKEPROFIT = Ask + _MIN_TAKEPROFIT_DISTANCE*Point;
       }
-      OrderSend(Symbol(), OP_BUY, LOTS, Ask, SLIPPAGE, STOPLOSS, TAKEPROFIT, "", MAGICNUMBER, 0, Blue);
+      return(OrderSend(Symbol(), OP_BUY, LOTS, Ask, SLIPPAGE, STOPLOSS, TAKEPROFIT, "", MAGICNUMBER, 0, Blue));
    }
-   
-   LastBarTraded = Time[0];
 }
 //------------------------------------------------------------------------------------
 // Opens pending position according to arguments (sell stop || buy stop, amount of Lots to trade 
@@ -330,8 +630,6 @@ void OpenPendingPosition(bool SHORTLONG, double LOTS, double OPENPRICE, double S
    {
       OrderSend(Symbol(), OP_BUYSTOP, LOTS, OPENPRICE, SLIPPAGE, STOPLOSS, TAKEPROFIT, NULL, MAGICNUMBER, EXPIRATION, Blue);
    }
-   
-   LastBarTraded = Time[0];
 }
 //------------------------------------------------------------------
 //------------------------------------------------------------------
@@ -340,6 +638,7 @@ void OpenPendingPosition(bool SHORTLONG, double LOTS, double OPENPRICE, double S
 //------------------------------------------------------------------
 //------------------------------------------------------------------
 //------------------------------------------------------------------
+
 //------------------------------------------------------------------
 void ModifyAllPositions(int MAGICNUMBER, double STOPLOSS, double TAKEPROFIT)
 {
@@ -410,27 +709,10 @@ void ModifyPosition(int TICKETNUMBER, double STOPLOSS, double TAKEPROFIT)
 //   Print(Ask, " - ", Bid, " - ", OrderTicket(), " - ", OrderOpenPrice(), " - ", OrderStopLoss(), " - ", OrderTakeProfit(), " - ", STOPLOSS, " - ", TAKEPROFIT, " - ", OrderMagicNumber());
    OrderModify(OrderTicket(), OrderOpenPrice(), STOPLOSS, TAKEPROFIT, 0);
 }
-/*
-Old function without any STOPLOSS and TAKEPROFIT security check
-*/
-/*
-void ModifyPosition(int TICKETNUMBER, double STOPLOSS, double TAKEPROFIT)
-{
-   STOPLOSS = NormalizeDouble(STOPLOSS, 4);
-   TAKEPROFIT = NormalizeDouble(TAKEPROFIT, 4);
-   
-   OrderSelect(TICKETNUMBER, SELECT_BY_TICKET);
-   if(NormalizeDouble(OrderStopLoss(), 4) == NormalizeDouble(STOPLOSS, 4) && NormalizeDouble(OrderTakeProfit(), 4) == NormalizeDouble(TAKEPROFIT, 4))
-      return;
-      
-//   Print(OrderTicket(), " - ", OrderOpenPrice(), " - ", OrderStopLoss(), " - ", OrderTakeProfit(), " - ", STOPLOSS, " - ", TAKEPROFIT);
-   OrderModify(OrderTicket(), OrderOpenPrice(), STOPLOSS, TAKEPROFIT, 0);
-}
-*/
 //------------------------------------------------------------------------------------
 // Close all positions
 //------------------------------------------------------------------------------------
-void CloseAllPositions(int MAGICNUMBER)
+int CloseAllPositions(int MAGICNUMBER)
 {
    int i;
    int OrderTickets2Close[];
@@ -445,12 +727,12 @@ void CloseAllPositions(int MAGICNUMBER)
       OrderTickets2Close[ArraySize(OrderTickets2Close)] = OrderTicket();
    }
 
-   ClosePositions(OrderTickets2Close);
+   return(ClosePositions(OrderTickets2Close));
 }
 //------------------------------------------------------------------------------------
 // Close all long positions
 //------------------------------------------------------------------------------------
-void CloseAllLongPositions(int MAGICNUMBER)
+int CloseAllLongPositions(int MAGICNUMBER)
 {
    int i;
    int OrderTickets2Close[];
@@ -465,12 +747,12 @@ void CloseAllLongPositions(int MAGICNUMBER)
       OrderTickets2Close[ArraySize(OrderTickets2Close) - 1] = OrderTicket();
    }
 
-   ClosePositions(OrderTickets2Close);
+   return(ClosePositions(OrderTickets2Close));
 }
 //------------------------------------------------------------------------------------
 // Close all short positions
 //------------------------------------------------------------------------------------
-void CloseAllShortPositions(int MAGICNUMBER)
+int CloseAllShortPositions(int MAGICNUMBER)
 {
    int i;
    int OrderTickets2Close[];
@@ -485,32 +767,41 @@ void CloseAllShortPositions(int MAGICNUMBER)
       OrderTickets2Close[ArraySize(OrderTickets2Close) - 1] = OrderTicket();
    }
 
-   ClosePositions(OrderTickets2Close);
+   return(ClosePositions(OrderTickets2Close));
 }
 //------------------------------------------------------------------------------------
 // Close positions by ticket array
 //------------------------------------------------------------------------------------
-void ClosePositions(int OrderTickets2Close[])
+int ClosePositions(int OrderTickets2Close[])
 {
-   int i;
+   int i, closed = 0;
    
    for(i = 0; i < ArraySize(OrderTickets2Close); i++)
    {
-      ClosePosition(OrderTickets2Close[i]);
+      closed += ClosePosition(OrderTickets2Close[i]);
    }
 }
 //------------------------------------------------------------------------------------
 // Close position by ticket
 //------------------------------------------------------------------------------------
-void ClosePosition(int OrderTicket2Close)
+int ClosePosition(int OrderTicket2Close)
 {
+   int result = 0;
+   
    if(OrderSelect(OrderTicket2Close, SELECT_BY_TICKET))
    {
       if(OrderType() == OP_SELL)
-         OrderClose(OrderTicket(), OrderLots(), Ask, 3, Orange);
+         if(OrderClose(OrderTicket(), OrderLots(), Ask, 3, Orange))
+            result = 1;
       else if(OrderType() == OP_BUY)
-         OrderClose(OrderTicket(), OrderLots(), Bid, 3, Orange);
+         if(OrderClose(OrderTicket(), OrderLots(), Bid, 3, Orange))
+            result = 1;
    }
+   
+   if(result == 0)
+      ErrorCheckup();
+   
+   return(result);
 }
 //------------------------------------------------------------------
 //------------------------------------------------------------------
@@ -519,485 +810,20 @@ void ClosePosition(int OrderTicket2Close)
 //------------------------------------------------------------------
 //------------------------------------------------------------------
 //------------------------------------------------------------------
-//
-string getStrategyCurrencyByNumber(int _CURRENCY)
-{
-// 1  - EURUSD
-// 2  - GBPUSD
-// 3  - USDCHF
-// 4  - USDJPY
-// 5  - EURJPY
-// 6  - EURCHF
-// 7  - EURGBP
-// 8  - GBPJPY
-// 9  - CHFJPY
-// 10 - GBPCHF
-   switch(_CURRENCY)
-   {
-      case 1:
-         return ("EURUSD");
-      case 2:
-         return ("GBPUSD");
-      case 3:
-         return ("USDCHF");
-      case 4:
-         return ("USDJPY");
-      case 5:
-         return ("EURJPY");
-      case 6:
-         return ("EURCHF");
-      case 7:
-         return ("EURGBP");
-      case 8:
-         return ("GBPJPY");
-      case 9:
-         return ("CHFJPY");
-      case 10:
-         return ("GBPCHF");
-   }
-}
+
 //------------------------------------------------------------------
-int getStrategyTimeframeByNumber(int _PERIOD)
+bool SendPredefinedRecipientMail(string SUBJECT, string TEXT, string ATTACHMENT_PATH = "", string ATTACHMENT_TITLE = "")
 {
-// 1 - PERIOD_M1
-// 2 - PERIOD_M5
-// 3 - PERIOD_M15
-// 4 - PERIOD_M30
-// 5 - PERIOD_H1
-// 6 - PERIOD_H4
-// 7 - PERIOD_D1
-// 8 - PERIOD_W1
-// 9 - PERIOD_MN1
-   if(_STRATEGY_TIMEFRAME_CHOICE == 0)
-      return(Period());
-   else
-      switch(_PERIOD)
-      {
-         case 1:
-            return (PERIOD_M1);
-         case 2:
-            return (PERIOD_M5);
-         case 3:
-            return (PERIOD_M15);
-         case 4:
-            return (PERIOD_M30);
-         case 5:
-            return (PERIOD_H1);
-         case 6:
-            return (PERIOD_H4);
-         case 7:
-            return (PERIOD_D1);
-         case 8:
-            return (PERIOD_W1);
-         case 9:
-            return (PERIOD_MN1);
-      }
-}
-//------------------------------------------------------------------
-int getHigherTimeframe(int Timeframe)
-{
-   switch(Timeframe)
-   {
-      case PERIOD_M1:
-         return (PERIOD_M5);
-      case PERIOD_M5:
-         return (PERIOD_M15);
-      case PERIOD_M15:
-         return (PERIOD_M30);
-      case PERIOD_M30:
-         return (PERIOD_H1);
-      case PERIOD_H1:
-         return (PERIOD_H4);
-      case PERIOD_H4:
-         return (PERIOD_D1);
-      case PERIOD_D1:
-         return (PERIOD_W1);
-      case PERIOD_W1:
-         return (PERIOD_MN1);
-   }
-   
-   return (Timeframe);
-}
-//------------------------------------------------------------------
-int getLowerTimeframe(int Timeframe)
-{
-   switch(Timeframe)
-   {
-      case PERIOD_M1:
-         return (PERIOD_M1);
-      case PERIOD_M5:
-         return (PERIOD_M1);
-      case PERIOD_M15:
-         return (PERIOD_M5);
-      case PERIOD_M30:
-         return (PERIOD_M15);
-      case PERIOD_H1:
-         return (PERIOD_M30);
-      case PERIOD_H4:
-         return (PERIOD_H1);
-      case PERIOD_D1:
-         return (PERIOD_H4);
-      case PERIOD_W1:
-         return (PERIOD_D1);
-      case PERIOD_MN1:
-         return (PERIOD_W1);
-   }
-   
-   return (Timeframe);
-}
-//------------------------------------------------------------------------------------
-// FRACTALS
-//------------------------------------------------------------------------------------
-//------------------------------------------------------------------------------------
-// Last fractal value
-//------------------------------------------------------------------------------------
-datetime getLastFractalTime(string _SYMBOL, int _TIMEFRAME, bool UpperLower)
-{
-   return (getNthFractalTime(_SYMBOL, _TIMEFRAME, UpperLower, 1));
-}
-//------------------------------------------------------------------------------------
-// Previous fractal value
-//------------------------------------------------------------------------------------
-datetime getPreviousFractalTime(string _SYMBOL, int _TIMEFRAME, bool UpperLower)
-{
-   return (getNthFractalTime(_SYMBOL, _TIMEFRAME, UpperLower, 2));
-}
-//------------------------------------------------------------------------------------
-// Last fractal value
-//------------------------------------------------------------------------------------
-double getLastFractalValue(string _SYMBOL, int _TIMEFRAME, bool UpperLower)
-{
-   return (getNthFractalValue(_SYMBOL, _TIMEFRAME, UpperLower, 1));
-}
-//------------------------------------------------------------------------------------
-// Previous fractal value
-//------------------------------------------------------------------------------------
-double getPreviousFractalValue(string _SYMBOL, int _TIMEFRAME, bool UpperLower)
-{
-   return (getNthFractalValue(_SYMBOL, _TIMEFRAME, UpperLower, 2));
-}
-//------------------------------------------------------------------------------------
-// NthFractal fractal value
-//------------------------------------------------------------------------------------
-double getNthFractalValue(string _SYMBOL, int _TIMEFRAME, bool UpperLower, int Nth)
-{
-   double   result      = 0;
-   int      i           = 0;
-   int      NthFractal  = Nth;     // NthFractal - put here number of fractal into history you want to get a value for
-      
-   if(UpperLower)
-   {
-      while(i < 1000 && NthFractal > 0)
-      {
-         result = iFractals(_SYMBOL, _TIMEFRAME, MODE_UPPER, i);
-         
-         i++;
-         if(result > 0)
-         {
-            NthFractal--;
-            continue;
-         }
-      }
-   }
-   else
-   {
-      while(i < 1000 && NthFractal > 0)
-      {
-         result = iFractals(_SYMBOL, _TIMEFRAME, MODE_LOWER, i);
-
-         i++;
-         if(result > 0)
-         {
-            NthFractal--;
-            continue;
-         }
-      }
-   }
-   
-   return (result);
-}
-//------------------------------------------------------------------------------------
-// NthFractal fractal time
-//------------------------------------------------------------------------------------
-datetime getNthFractalTime(string _SYMBOL, int _TIMEFRAME, bool UpperLower, int Nth)
-{
-   datetime result      = 0;
-   int      i           = 0;
-   int      NthFractal  = Nth;     // NthFractal - put here number of fractal into history you want to get a value for
-      
-   if(UpperLower)
-   {
-      while(i < 1000 && NthFractal > 0)
-      {
-         i++;
-         if(iFractals(_SYMBOL, _TIMEFRAME, MODE_UPPER, i) > 0)
-         {
-            NthFractal--;
-            continue;
-         }
-      }
-      
-      return(iTime(_SYMBOL, _TIMEFRAME, i));
-   }
-   else
-   {
-      while(i < 1000 && NthFractal > 0)
-      {
-         i++;
-         if(iFractals(_SYMBOL, _TIMEFRAME, MODE_LOWER, i) > 0)
-         {
-            NthFractal--;
-            continue;
-         }
-      }
-
-      return(iTime(_SYMBOL, _TIMEFRAME, i));
-   }
-   
-   return (result);
-}
-//------------------------------------------------------------------------------------
-// ZIGZAG
-//------------------------------------------------------------------------------------
-//------------------------------------------------------------------------------------
-// Last ZIGZAG time
-//------------------------------------------------------------------------------------
-datetime getLastZIGZAGTime(string _SYMBOL, int _TIMEFRAME, bool UpperLower)
-{
-   return (getNthZIGZAGTime(_SYMBOL, _TIMEFRAME, UpperLower, 1));
-}
-//------------------------------------------------------------------------------------
-// Previous ZIGZAG time
-//------------------------------------------------------------------------------------
-datetime getPreviousZIGZAGTime(string _SYMBOL, int _TIMEFRAME, bool UpperLower)
-{
-   return (getNthZIGZAGTime(_SYMBOL, _TIMEFRAME, UpperLower, 2));
-}
-//------------------------------------------------------------------------------------
-// Last ZIGZAG value
-//------------------------------------------------------------------------------------
-double getLastZIGZAGValue(string _SYMBOL, int _TIMEFRAME, bool UpperLower)
-{
-   return (getNthZIGZAGValue(_SYMBOL, _TIMEFRAME, UpperLower, 1));
-}
-//------------------------------------------------------------------------------------
-// Previous ZIGZAG value
-//------------------------------------------------------------------------------------
-double getPreviousZIGZAGValue(string _SYMBOL, int _TIMEFRAME, bool UpperLower)
-{
-   return (getNthZIGZAGValue(_SYMBOL, _TIMEFRAME, UpperLower, 2));
-}
-//------------------------------------------------------------------------------------
-// Nth ZIGZAG value
-//------------------------------------------------------------------------------------
-double getNthZIGZAGValue(string _SYMBOL, int _TIMEFRAME, bool UpperLower, int Nth)
-{
-   double   result      = 0;
-   int      i           = 0;
-   int      NthZIGZAG   = 2*Nth + 1;
-   double   ZIGZAG1     = 0;
-   double   ZIGZAG2     = 0;
-   
-   while(i < 1000 && NthZIGZAG > 0)
-   {
-      result = iCustom(_SYMBOL, _TIMEFRAME, "ZigZag", 12, 5, 3, 0, i);
-                 
-      i++;
-
-      if(result > 0)
-      {
-         ZIGZAG1 = ZIGZAG2;
-         ZIGZAG2 = result;
-         NthZIGZAG--;
-         continue;
-      }
-   }
-   
-   if(UpperLower)
-   {
-      if(ZIGZAG1 > ZIGZAG2)
-         result = ZIGZAG1;
-      else
-         result = ZIGZAG2;
-   }
-   else
-   {
-      if(ZIGZAG1 > ZIGZAG2)
-         result = ZIGZAG2;
-      else
-         result = ZIGZAG1;
-   }
-   
-   return (result);
+   return(MailNotification (_MAIL_NOTIFICATION_TO, SUBJECT, TEXT, ATTACHMENT_PATH, ATTACHMENT_TITLE));
 }
 
 
-double getNthZIGZAGValueOld(string _SYMBOL, int _TIMEFRAME, bool UpperLower, int Nth)
-{
-   double   result      = 0;
-   int      i           = 0;
-   int      NthZIGZAG   = Nth;
-   bool     LastZIGZAG  = true;
-      
-   if(UpperLower)
-   {
-      while(i < 1000 && NthZIGZAG > 0)
-      {
-         if(LastZIGZAG)
-         {
-            if(iCustom(_SYMBOL, _TIMEFRAME, "ZigZag", 12, 5, 3, 1, i) > 0 || iCustom(_SYMBOL, _TIMEFRAME, "ZigZag", 12, 5, 3, 2, i) > 0)
-               LastZIGZAG = false;
-            i++;
-            continue;
-         }
-
-         result = iCustom(_SYMBOL, _TIMEFRAME, "ZigZag", 12, 5, 3, 1, i);
-         
-//         Print("upper:", result);
-         
-         i++;
-         if(result > 0)
-         {
-            NthZIGZAG--;
-            continue;
-         }
-      }
-   }
-   else
-   {
-      while(i < 1000 && NthZIGZAG > 0)
-      {
-         if(LastZIGZAG)
-         {
-            if(iCustom(_SYMBOL, _TIMEFRAME, "ZigZag", 12, 5, 3, 1, i) > 0 || iCustom(_SYMBOL, _TIMEFRAME, "ZigZag", 12, 5, 3, 2, i) > 0)
-               LastZIGZAG = false;
-            i++;
-            continue;
-         }
-
-         result = iCustom(_SYMBOL, _TIMEFRAME, "ZigZag", 12, 5, 3, 2, i);
-
-//         Print("lower:", result);
-
-         i++;
-         if(result > 0)
-         {
-            NthZIGZAG--;
-            continue;
-         }
-      }
-   }
-   
-   return (result);
-}
-//------------------------------------------------------------------------------------
-// Nth ZIGZAG time
-//------------------------------------------------------------------------------------
-datetime getNthZIGZAGTime(string _SYMBOL, int _TIMEFRAME, bool UpperLower, int Nth)
-{
-   double   result      = 0;
-   int      i           = 0;
-   int      NthZIGZAG   = 2*Nth + 1;
-   double   ZIGZAG1     = 0;
-   double   ZIGZAG2     = 0;
-   int      ZIGZAG1Time = 0;
-   int      ZIGZAG2Time = 0;
-   
-   while(i < 1000 && NthZIGZAG > 0)
-   {
-      result = iCustom(_SYMBOL, _TIMEFRAME, "ZigZag", 12, 5, 3, 0, i);
-      
-      i++;
-
-      if(result > 0)
-      {
-         ZIGZAG1 = ZIGZAG2;
-         ZIGZAG2 = result;
-         ZIGZAG1Time = ZIGZAG2Time;
-         ZIGZAG2Time = i - 1;
-         NthZIGZAG--;
-         continue;
-      }
-   }
-   
-   if(UpperLower)
-   {
-      if(ZIGZAG1 > ZIGZAG2)
-         result = ZIGZAG1Time;
-      else
-         result = ZIGZAG2Time;
-   }
-   else
-   {
-      if(ZIGZAG1 > ZIGZAG2)
-         result = ZIGZAG2Time;
-      else
-         result = ZIGZAG1Time;
-   }
-   
-   return(iTime(_SYMBOL, _TIMEFRAME, result));
-}
-
-
-datetime getNthZIGZAGTimeOld(string _SYMBOL, int _TIMEFRAME, bool UpperLower, int Nth)
-{
-   datetime result      = 0;
-   int      i           = 0;
-   int      NthZIGZAG   = Nth;
-   bool     LastZIGZAG  = true;
-      
-   if(UpperLower)
-   {
-      while(i < 1000 && NthZIGZAG > 0)
-      {
-         if(LastZIGZAG)
-         {
-            if(iCustom(_SYMBOL, _TIMEFRAME, "ZigZag", 12, 5, 3, 1, i) > 0 || iCustom(_SYMBOL, _TIMEFRAME, "ZigZag", 12, 5, 3, 2, i) > 0)
-               LastZIGZAG = false;
-            i++;
-            continue;
-         }
-
-         i++;
-         if(iCustom(_SYMBOL, _TIMEFRAME, "ZigZag", 12, 5, 3, 1, i) > 0)
-         {
-            NthZIGZAG--;
-            continue;
-         }
-      }
-      
-      return(iTime(_SYMBOL, _TIMEFRAME, i));
-   }
-   else
-   {
-      while(i < 1000 && NthZIGZAG > 0)
-      {
-         if(LastZIGZAG)
-         {
-            if(iCustom(_SYMBOL, _TIMEFRAME, "ZigZag", 12, 5, 3, 1, i) > 0 || iCustom(_SYMBOL, _TIMEFRAME, "ZigZag", 12, 5, 3, 2, i) > 0)
-               LastZIGZAG = false;
-            i++;
-            continue;
-         }
-
-         i++;
-         if(iCustom(_SYMBOL, _TIMEFRAME, "ZigZag", 12, 5, 3, 2, i) > 0)
-         {
-            NthZIGZAG--;
-            continue;
-         }
-      }
-
-      return(iTime(_SYMBOL, _TIMEFRAME, i));
-   }
-   
-   return (result);
-}
 //------------------------------------------------------------------
 bool MailNotification(string TO, string SUBJECT, string TEXT, string ATTACHMENT_PATH = "", string ATTACHMENT_TITLE = "")
 {
    gSendMail ("default", TO, SUBJECT, TEXT, ATTACHMENT_PATH, ATTACHMENT_TITLE);
 }
+
 //------------------------------------------------------------------
 string MakeScreenShot()
 {
@@ -1014,268 +840,13 @@ string MakeScreenShot()
       
    return(ResultFileName);
 }
+
 //------------------------------------------------------------------
-//------------------------------------------------------------------
-//Signal modul
-//------------------------------------------------------------------
-//------------------------------------------------------------------
-//------------------------------------------------------------------
-//
-double Strategy(int STRATEGY, int COMMAND)
+void ErrorCheckup()
 {
-   switch(STRATEGY)
+   int error = GetLastError();
+   if(_SENT_MAIL_NOTIFI_ON_ERROR == 1)
    {
-      case 28:
-      {
-         return(Strategy_028(COMMAND));
-      }
+      SendPredefinedRecipientMail(StringConcatenate("Error number ", error, " occured!"), StringConcatenate("Error number ", error, " occured! \nError description: ", ErrorDescription(error)));
    }
-
-   return(0);
 }
-//------------------------------------------------------------------//------------------------------------------------------------------
-double Strategy_028(int COMMAND)
-{
-   string   _SYMBOL        = Symbol();
-   int      _TIMEFRAME     = getStrategyTimeframeByNumber(_STRATEGY_TIMEFRAME);
-   int i                   = 0;
-
-   double   result         = 0;
-   
-   switch(COMMAND)
-   {
-      case _OPEN_LONG:
-      {
-//         if(!OpenNewBar(_TIMEFRAME))
-//            break;
-         
-//if any long order already openned - return
-         for(i = 0; i < OrdersTotal(); i++)
-         {
-            OrderSelect(i, SELECT_BY_POS);
-            if(OrderMagicNumber() != _MAGICNUMBER)
-               continue;
-            if(OrderType() == OP_BUY )
-               return(result);
-         }
-         
-         // iterate all Objects
-         for(i = 0; i < ObjectsTotal(); i++)
-         {
-            // get only trendlines
-            if(ObjectType(ObjectName(i)) == OBJ_TREND || ObjectType(ObjectName(i)) == OBJ_HLINE)
-            {
-               // If trendline has name starting BUY LIMIT - we are awaiting reversal - SUPPORT
-               if(StringFind(ObjectName(i), _BUYLIMIT) == 0)
-               {
-                  if(Ask < ObjectGetValueByShift(ObjectName(i), 0))
-                  {
-                     result = 1;
-                     Print(_BUYLIMIT, " - Support reversal: ", "Ask: ", Ask, " Trenline name: ", ObjectName(i), " Trendline value: ", ObjectGetValueByShift(ObjectName(i), 0));
-                     gSendMail ("", "radorybar@gmail.com" , "BUY LIMIT - Support reversal" , "BUY LIMIT - Support reversal" , "" , "");
-//                     SendMail("BUY LIMIT - Support reversal", "BUY LIMIT - Support reversal");
-                  }
-                  
-                  continue;
-               }
-               
-               // If trendline has name starting BUY STOP - we are awaiting breakout - RESISTANCE
-               if(StringFind(ObjectName(i), _BUYSTOP) == 0)
-               {
-                  if(Ask > ObjectGetValueByShift(ObjectName(i), 0))
-                  {
-                     result = 1;
-                     Print(_BUYSTOP, " - Resistance breakout: ", "Ask: ", Ask, " Trenline name: ", ObjectName(i), " Trendline value: ", ObjectGetValueByShift(ObjectName(i), 0));
-                     gSendMail ("", "radorybar@gmail.com" , StringConcatenate(_BUYSTOP, " - Resistance breakout") , StringConcatenate(_BUYSTOP, " - Resistance breakout") , "" , "");
-//                     SendMail("BUY STOP - Resistance breakout", "BUY STOP - Resistance breakout");
-                  }
-                  
-                  continue;
-               }
-            }
-         }
-
-         break;
-      }
-      case _OPEN_SHORT:
-      {
-//         if(!OpenNewBar(_TIMEFRAME))
-//            break;
-
-//if any short order already openned - return
-         for(i = 0; i < OrdersTotal(); i++)
-         {
-            OrderSelect(i, SELECT_BY_POS);
-            if(OrderMagicNumber() != _MAGICNUMBER)
-               continue;
-            if(OrderType() == OP_SELL )
-               return(result);
-         }
-
-         // iterate all Objects
-         for(i = 0; i < ObjectsTotal(); i++)
-         {
-            // get only trendlines
-            if(ObjectType(ObjectName(i)) == OBJ_TREND || ObjectType(ObjectName(i)) == OBJ_HLINE)
-            {
-               // If trendline has name starting SELL LIMIT - we are awaiting reversal - RESISTANCE
-               if(StringFind(ObjectName(i), _SELLLIMIT) == 0)
-               {
-                  if(Bid > ObjectGetValueByShift(ObjectName(i), 0))
-                  {
-                     result = 1;
-                     Print(_SELLLIMIT, " - Resistance reversal: ", "Bid: ", Bid, " Trenline name: ", ObjectName(i), " Trendline value: ", ObjectGetValueByShift(ObjectName(i), 0));
-                     gSendMail ("", "radorybar@gmail.com" , "SELL LIMIT - Support reversal" , "SELL LIMIT - Resistance reversal" , "" , "");
-//                     SendMail("BUY LIMIT - Support reversal", "BUY LIMIT - Support reversal");
-                  }
-                  
-                  continue;
-               }
-               
-               // If trendline has name starting SELL STOP - we are awaiting breakout - SUPPORT
-               if(StringFind(ObjectName(i), _BUYSTOP) == 0)
-               {
-                  if(Bid < ObjectGetValueByShift(ObjectName(i), 0))
-                  {
-                     result = 1;
-                     Print(_SELLSTOP, " - Resistance breakout: ", "Bid: ", Bid, " Trenline name: ", ObjectName(i), " Trendline value: ", ObjectGetValueByShift(ObjectName(i), 0));
-                     gSendMail ("", "radorybar@gmail.com" , "SELL STOP - Support breakout" , "SELL STOP - Support breakout" , "" , "");
-//                     SendMail("BUY STOP - Resistance breakout", "BUY STOP - Resistance breakout");
-                  }
-                  
-                  continue;
-               }
-            }
-         }
-
-         break;
-      }
-      case _CLOSE_LONG:
-      {
-//         break;
-
-//         if(!OpenNewBar(_TIMEFRAME))
-//            break;
-
-         // iterate all Objects
-         for(i = 0; i < ObjectsTotal(); i++)
-         {
-            // get only trendlines
-            if(ObjectType(ObjectName(i)) == OBJ_TREND || ObjectType(ObjectName(i)) == OBJ_HLINE)
-            {
-               // If trendline has name starting BUY CLOSE TARGET PROFIT - close order with target profit
-               if(StringFind(ObjectName(i), _BUYTP) == 0)
-               {
-                  if(Bid >= ObjectGetValueByShift(ObjectName(i), 0))
-                  {
-                     result = 1;
-                     Print(_BUYTP, " Bid: ", Bid, " Trenline name: ", ObjectName(i), " Trendline value: ", ObjectGetValueByShift(ObjectName(i), 0));
-                     gSendMail ("", "radorybar@gmail.com" , _BUYTP , StringConcatenate("Bid: ", Bid) , "" , "");
-//                     SendMail("BUY LIMIT - Support reversal", "BUY LIMIT - Support reversal");
-                  }
-                  
-                  continue;
-               }
-               
-               // If trendline has name starting BUY CLOSE STOPLOSS - close order due to a STOPLOSS
-               if(StringFind(ObjectName(i), _BUYSL) == 0)
-               {
-                  if(Bid < ObjectGetValueByShift(ObjectName(i), 0))
-                  {
-                     result = 1;
-                     Print(_BUYSL , " Bid: ", Bid, " Trenline name: ", ObjectName(i), " Trendline value: ", ObjectGetValueByShift(ObjectName(i), 0));
-                     gSendMail ("", "radorybar@gmail.com" , _BUYSL , StringConcatenate("Bid: ", Bid) , "" , "");
-//                     SendMail("BUY STOP - Resistance breakout", "BUY STOP - Resistance breakout");
-                  }
-                  
-                  continue;
-               }
-            }
-         }
-
-         break;
-      }
-      case _CLOSE_SHORT:
-      {
-//         break;
-
-//         if(!OpenNewBar(_TIMEFRAME))
-//            break;
-
-         // iterate all Objects
-         for(i = 0; i < ObjectsTotal(); i++)
-         {
-            // get only trendlines
-            if(ObjectType(ObjectName(i)) == OBJ_TREND || ObjectType(ObjectName(i)) == OBJ_HLINE)
-            {
-               // If trendline has name starting SELL CLOSE TARGET PROFIT - close order with target profit
-               if(StringFind(ObjectName(i), _SELLTP) == 0)
-               {
-                  if(Ask <= ObjectGetValueByShift(ObjectName(i), 0))
-                  {
-                     result = 1;
-                     Print(_SELLTP, " Ask: ", Ask, " Trenline name: ", ObjectName(i), " Trendline value: ", ObjectGetValueByShift(ObjectName(i), 0));
-                     gSendMail ("", "radorybar@gmail.com" , _SELLTP , StringConcatenate("Ask: ", Ask) , "" , "");
-//                     SendMail("BUY LIMIT - Support reversal", "BUY LIMIT - Support reversal");
-                  }
-                  
-                  continue;
-               }
-               
-               // If trendline has name starting SELL CLOSE STOPLOSS - close order due to a STOPLOSS
-               if(StringFind(ObjectName(i), _SELLSL) == 0)
-               {
-                  if(Ask > ObjectGetValueByShift(ObjectName(i), 0))
-                  {
-                     result = 1;
-                     Print(_SELLSL, " Ask: ", Ask, " Trenline name: ", ObjectName(i), " Trendline value: ", ObjectGetValueByShift(ObjectName(i), 0));
-                     gSendMail ("", "radorybar@gmail.com" , _SELLSL , StringConcatenate("Ask: ", Ask) , "" , "");
-//                     SendMail("BUY STOP - Resistance breakout", "BUY STOP - Resistance breakout");
-                  }
-                  
-                  continue;
-               }
-            }
-         }
-
-         break;
-      }
-      case _GET_LONG_STOPLOSS_PRICE:
-      {
-         break;
-      }
-      case _GET_LONG_TAKEPROFIT_PRICE:
-      {
-         break;
-      }
-      case _GET_SHORT_STOPLOSS_PRICE:
-      {
-         break;
-      }
-      case _GET_SHORT_TAKEPROFIT_PRICE:
-      {
-         break;
-      }
-      case _GET_TRAILED_STOPLOSS_PRICE:
-      {
-         break;
-      }
-      case _GET_TRAILED_TAKEPROFIT_PRICE:
-      {
-         break;
-      }
-      case _GET_LOTS:
-      {
-         result = 0.1;
-         break;
-      }
-      case _GET_TRADED_TIMEFRAME:
-      {
-         result = _TIMEFRAME;
-         break;
-      }
-   }
-      
-   return(result);
-}
-
