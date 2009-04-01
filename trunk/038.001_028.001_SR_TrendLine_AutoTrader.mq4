@@ -532,8 +532,7 @@ bool ExecuteActions(string ParsedAction[], bool AskBid)
 //SEND_SCREENSHOT
    if(stringContainsIgnoreCase(ParsedAction[0], SEND_SCREENSHOT))
    {
-//      sent = SendPredefinedRecipientMail(ParseActionText(ParsedAction[0]), ParseActionText(ParsedAction[0]), MakeScreenShot(), ParseActionText(ParsedAction[0]));
-      sent = SendPredefinedRecipientMail(ParsedAction[0], ParsedAction[0]);
+      sent = SendPredefinedRecipientMail(ParsedAction[0], ParsedAction[0], MakeScreenShot(), ParsedAction[0]);
    }
 
    return(result);
@@ -913,7 +912,7 @@ bool SendPredefinedRecipientMail(string SUBJECT, string TEXT, string ATTACHMENT_
 //------------------------------------------------------------------
 bool MailNotification(string TO, string SUBJECT, string TEXT, string ATTACHMENT_PATH = "", string ATTACHMENT_TITLE = "")
 {
-   return(gSendMail ("default", TO, SUBJECT, TEXT, ATTACHMENT_PATH, ATTACHMENT_TITLE));
+   return(gSendMail("default", TO, SUBJECT, TEXT, ATTACHMENT_PATH, ATTACHMENT_TITLE));
 }
 
 //------------------------------------------------------------------
