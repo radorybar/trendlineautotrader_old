@@ -4,6 +4,7 @@
 #include <gMail.mqh>
 #include <stderror.mqh>
 #include <stdlib.mqh>
+#include <StringLib.mqh>
 
 bool        _DEBUG =                   true;
 
@@ -42,7 +43,7 @@ int   _MIN_TAKEPROFIT_DISTANCE      = 10;
 //------------------------------------------------------------------
 //------------------------------------------------------------------
 //------------------------------------------------------------------
-#define     _MAIL_NOTIFICATION_FROM          "turtle.vpscustomer.Comment"
+#define     _MAIL_NOTIFICATION_FROM          "turtle.vpscustomer.com"
 #define     _MAIL_NOTIFICATION_TO            "radorybar@gmail.com"
 #define     _SENT_MAIL_NOTIFI_ON_ERROR       0
 //------------------------------------------------------------------
@@ -54,6 +55,7 @@ int   _MIN_TAKEPROFIT_DISTANCE      = 10;
 //------------------------------------------------------------------
 
 //define all important action language keywords
+/*
 #define BUY_STOP				     "BUY_STOP"
 #define BUY_LIMIT               "BUY_LIMIT"
 #define SELL_STOP               "SELL_STOP"
@@ -66,6 +68,20 @@ int   _MIN_TAKEPROFIT_DISTANCE      = 10;
 #define ORDER_MOVE_SL           "ORDER_MOVE_SL"
 #define ORDER_MOVE_TP           "ORDER_MOVE_TP"
 #define ORDER_ID                "ORDER_ID"
+*/
+
+#define BUY_STOP				     "BUYSTP"
+#define BUY_LIMIT               "BUYLMT"
+#define SELL_STOP               "SELLSTP"
+#define SELL_LIMIT              "SELLLMT"
+#define SEND_MAIL               "MAIL"
+#define SEND_SCREENSHOT         "SCREEN"
+#define ORDER_CLOSE             "ORDRCLOSE"
+#define OBJECT_ACTIVATE         "OBJACT"
+#define OBJECT_DEACTIVATE       "OBJDEACT"
+#define ORDER_MOVE_SL           "ORDRSL"
+#define ORDER_MOVE_TP           "ORDRTP"
+#define ORDER_ID                "ORDRID"
 
 //All object that are relevant for autotarder
 int       _OBJECT_TYPES[] = 
@@ -115,7 +131,7 @@ string   _ACTION_LANGUAGE_COMMANDS[] =
 //All other - non actions - possible for use in object description
 string   _ACTION_LANGUAGE_ITEMS[] = 
 {
-   "ORDER_ID"
+   ORDER_ID
 };
 
 string _ACTION_LANGUAGE_DELIMITER = "*";
@@ -160,21 +176,25 @@ int start()
    if(!GetRelevantObjects(_OBJECT_TYPES, RelevantObjectNames))
       return(1);
    
+   //should filter and return only all active object names
+   if(!FilterActiveObjects(RelevantObjectNames))
+      return(2);
+
    //should return all object names - ids which were crossed by Ask price
    if(!GetAskCrossedObjects(RelevantObjectNames, AskCrossedObjectNames))
-      return(2);
+      return(3);
 
    //should return all object names - ids which were crossed by Bid price
    if(!GetBidCrossedObjects(RelevantObjectNames, BidCrossedObjectNames))
-      return(3);
+      return(4);
 
    //should parse all Ask cross actions from all Ask crossed objects
    if(!GetActionStrings(AskCrossedObjectNames, AskActionStrings))
-      return(4);
+      return(5);
    
    //should parse all Bid cross actions from all Bid crossed objects
    if(!GetActionStrings(BidCrossedObjectNames, BidActionStrings))
-      return(5);
+      return(6);
 
    //should execute all actions in pool
    for(i = 0; i < ArraySize(AskActionStrings); i++)
@@ -219,6 +239,39 @@ bool GetRelevantObjects(int _OBJECT_TYPES[], string& RelevantObjectNames[])
 
    return(result);
 }
+
+
+bool FilterActiveObjects(string& ActiveObjectNames[])
+{
+   bool result = true;
+   string AllObjectNames[];
+   
+   ArrayCopy(AllObjectNames, ActiveObjectNames);
+   
+   ArrayResize(ActiveObjectNames, 0);
+   
+   for(int j = 0; j < ArraySize(AllObjectNames); j++)
+   {
+      if(IsActiveObject(AllObjectNames[j]))
+      {
+         ArrayResize(ActiveObjectNames, ArraySize(ActiveObjectNames) + 1);
+         ActiveObjectNames[ArraySize(ActiveObjectNames) - 1] = AllObjectNames[j];
+      }
+   }
+
+   return(result);
+}
+
+bool IsActiveObject(string ObjName)
+{
+   bool result = true;
+   
+   if(StringFind(StringTrimLeft(StringTrimRight(ObjectDescription(ObjName))), "-") == 0)
+      result = false;
+      
+   return(result);
+}
+
 bool GetAskCrossedObjects(string RelevantObjectNames[], string& CrossedObjectNames[])
 {
    bool result = true;
@@ -236,6 +289,7 @@ bool GetAskCrossedObjects(string RelevantObjectNames[], string& CrossedObjectNam
 
    return(result);
 }
+
 bool GetBidCrossedObjects(string RelevantObjectNames[], string& CrossedObjectNames[])
 {
    bool result = true;
@@ -260,13 +314,23 @@ bool GetActionStrings(string CrossedObjectNames[], string& ActionStrings[])
    
    for(int i = 0; i < ArraySize(CrossedObjectNames); i++)
    {
-      ArrayResize(ActionStrings, ArraySize(ActionStrings) + 1);
-      ActionStrings[i] = ObjectDescription(CrossedObjectNames[i]);
+      ArrayResize(ActionStrings, i + 1);
+      ActionStrings[i] = GetActionString(CrossedObjectNames[i]);
    }
 
    return(result);
 }
 
+string GetActionString(string ObjName)
+{
+   string result = "";
+   
+   result = StringTrimLeft(StringTrimRight(ObjectDescription(ObjName)));
+   if(StringFind(result, "-") == 0)
+      result = StringSubstr(result, 1);
+   
+   return(result);
+}
 
 bool ParseActions(string ActionString, string& ParsedAction[])
 {
@@ -290,14 +354,14 @@ bool ParseActions(string ActionString, string& ParsedAction[])
 //Check if parsed string contains any valid action or non action keyword
       bool ValidAcionLanguageItem = false;
       for(int j = 0; j < ArraySize(_ACTION_LANGUAGE_COMMANDS); j++)
-         if(StringFind(ParsedAction[i], _ACTION_LANGUAGE_COMMANDS[j]) > -1)
+         if(stringContainsIgnoreCase(ParsedAction[i], _ACTION_LANGUAGE_COMMANDS[j]))
          {
             ValidAcionLanguageItem = true;
             break;
          }
       if(!ValidAcionLanguageItem)
          for(j = 0; j < ArraySize(_ACTION_LANGUAGE_ITEMS); j++)
-            if(StringFind(ParsedAction[i], _ACTION_LANGUAGE_ITEMS[j]) > -1)
+            if(stringContainsIgnoreCase(ParsedAction[i], _ACTION_LANGUAGE_ITEMS[j]))
             {
                ValidAcionLanguageItem = true;
                break;
@@ -341,7 +405,7 @@ bool ExecuteActions(string ParsedAction[], bool AskBid)
 //if there is Order ID deined in action string - it has to be an integer value otherwise cancel action and return error
    for(i = 0; i < ArraySize(ParsedAction); i++)
    {
-      if(StringFind(ParsedAction[i], ORDER_ID) > -1)
+      if(stringContainsIgnoreCase(ParsedAction[i], ORDER_ID))
       {
          if(StrToInteger(ParseActionText(ParsedAction[i])) > 0)
          {
@@ -366,7 +430,7 @@ bool ExecuteActions(string ParsedAction[], bool AskBid)
    {
       int OrderTicketNumber = 0;
       if(Ask > LASTASK)
-         if(StringFind(ParsedAction[0], BUY_STOP) > -1)
+         if(stringContainsIgnoreCase(ParsedAction[0], BUY_STOP))
          {
             OrderTicketNumber = OpenPosition(false, _DEFAULT_LOTS, 0, 0, _DEFAULT_SLIPPAGE, OrderID);
             if(OrderTicketNumber < 0)
@@ -376,7 +440,7 @@ bool ExecuteActions(string ParsedAction[], bool AskBid)
          }
 
       if(Ask < LASTASK)
-         if(StringFind(ParsedAction[0], BUY_LIMIT) > -1)
+         if(stringContainsIgnoreCase(ParsedAction[0], BUY_LIMIT))
          {
             OrderTicketNumber = OpenPosition(false, _DEFAULT_LOTS, 0, 0, _DEFAULT_SLIPPAGE, OrderID);
             if(OrderTicketNumber < 0)
@@ -391,7 +455,7 @@ bool ExecuteActions(string ParsedAction[], bool AskBid)
    else
    {
       if(Bid < LASTBID)
-         if(StringFind(ParsedAction[0], SELL_STOP) > -1)
+         if(stringContainsIgnoreCase(ParsedAction[0], SELL_STOP))
          {
             OrderTicketNumber = OpenPosition(true, _DEFAULT_LOTS, 0, 0, _DEFAULT_SLIPPAGE, OrderID);
             if(OrderTicketNumber < 0)
@@ -401,7 +465,7 @@ bool ExecuteActions(string ParsedAction[], bool AskBid)
          }
 
       if(Bid > LASTBID)
-         if(StringFind(ParsedAction[0], SELL_LIMIT) > -1)
+         if(stringContainsIgnoreCase(ParsedAction[0], SELL_LIMIT))
          {
             OrderTicketNumber = OpenPosition(true, _DEFAULT_LOTS, 0, 0, _DEFAULT_SLIPPAGE, OrderID);
             if(OrderTicketNumber < 0)
@@ -412,7 +476,7 @@ bool ExecuteActions(string ParsedAction[], bool AskBid)
    }
    
 //ORDER_CLOSE
-   if(StringFind(ParsedAction[0], ORDER_CLOSE) > -1)
+   if(stringContainsIgnoreCase(ParsedAction[0], ORDER_CLOSE))
    {
       int NumberOfClosedPosition = 0;
 //if Ask price crossed
@@ -438,36 +502,38 @@ bool ExecuteActions(string ParsedAction[], bool AskBid)
       }
    }
 
-   if(StringFind(ParsedAction[0], OBJECT_ACTIVATE) > -1)
+   if(stringContainsIgnoreCase(ParsedAction[0], OBJECT_ACTIVATE))
    {
       
    }
 
-   if(StringFind(ParsedAction[0], OBJECT_DEACTIVATE) > -1)
+   if(stringContainsIgnoreCase(ParsedAction[0], OBJECT_DEACTIVATE))
    {
       
    }
 
-   if(StringFind(ParsedAction[0], ORDER_MOVE_SL) > -1)
+   if(stringContainsIgnoreCase(ParsedAction[0], ORDER_MOVE_SL))
    {
       
    }
 
-   if(StringFind(ParsedAction[0], ORDER_MOVE_TP) > -1)
+   if(stringContainsIgnoreCase(ParsedAction[0], ORDER_MOVE_TP))
    {
       
    }
 
+   bool sent;
 //SEND_MAIL   
-   if(StringFind(ParsedAction[0], SEND_MAIL) > -1)
+   if(stringContainsIgnoreCase(ParsedAction[0], SEND_MAIL))
    {
-      SendPredefinedRecipientMail(ParseActionText(ParsedAction[0]), ParseActionText(ParsedAction[0]));
+      sent = SendPredefinedRecipientMail(ParseActionText(ParsedAction[0]), ParseActionText(ParsedAction[0]));
    }
 
 //SEND_SCREENSHOT
-   if(StringFind(ParsedAction[0], SEND_SCREENSHOT) > -1)
+   if(stringContainsIgnoreCase(ParsedAction[0], SEND_SCREENSHOT))
    {
-      SendPredefinedRecipientMail(ParseActionText(ParsedAction[0]), ParseActionText(ParsedAction[i]), MakeScreenShot(), ParseActionText(ParsedAction[0]));
+//      sent = SendPredefinedRecipientMail(ParseActionText(ParsedAction[0]), ParseActionText(ParsedAction[0]), MakeScreenShot(), ParseActionText(ParsedAction[0]));
+      sent = SendPredefinedRecipientMail(ParsedAction[0], ParsedAction[0]);
    }
 
    return(result);
@@ -479,10 +545,10 @@ string ParseActionText(string ActionItem)
 
 //search for all action keywords, and parse only text behind this keyword   
    for(int j = 0; j < ArraySize(_ACTION_LANGUAGE_COMMANDS); j++)
-      if(StringFind(ActionItem, _ACTION_LANGUAGE_COMMANDS[j]) > -1)
+      if(stringContainsIgnoreCase(ActionItem, _ACTION_LANGUAGE_COMMANDS[j]))
       {
 //if action keyword found, cut it from the result action text
-         result = StringTrimLeft(StringTrimRight(StringSubstr(ActionItem, StringFind(ActionItem, _ACTION_LANGUAGE_COMMANDS[j]) + StringLen(_ACTION_LANGUAGE_COMMANDS[j]) + 1)));
+         result = StringTrimLeft(StringTrimRight(StringSubstr(ActionItem, stringFindIgnoreCase(ActionItem, _ACTION_LANGUAGE_COMMANDS[j]) + StringLen(_ACTION_LANGUAGE_COMMANDS[j]) + 1)));
          
 //if after action keyword follows one of these letters, cut it also - it is a kind of delimiter for better readibility
          if(
@@ -494,10 +560,10 @@ string ParseActionText(string ActionItem)
 //if still nop keyword has been found
    if(StringLen(result) == 0)
       for(j = 0; j < ArraySize(_ACTION_LANGUAGE_ITEMS); j++)
-         if(StringFind(ActionItem, _ACTION_LANGUAGE_ITEMS[j]) > -1)
+         if(stringContainsIgnoreCase(ActionItem, _ACTION_LANGUAGE_ITEMS[j]))
          {
 //if action keyword found, cut it from the result action text
-            result = StringTrimLeft(StringTrimRight(StringSubstr(ActionItem, StringFind(ActionItem, _ACTION_LANGUAGE_COMMANDS[j]) + StringLen(_ACTION_LANGUAGE_COMMANDS[j]) + 1)));
+            result = StringTrimLeft(StringTrimRight(StringSubstr(ActionItem, stringFindIgnoreCase(ActionItem, _ACTION_LANGUAGE_COMMANDS[j]) + StringLen(_ACTION_LANGUAGE_COMMANDS[j]) + 1)));
 //if after action keyword follows one of these letters, cut it also - it is a kind of delimiter for better readibility
             if(
                StringFind(result, ":") == 0 || 
@@ -847,7 +913,7 @@ bool SendPredefinedRecipientMail(string SUBJECT, string TEXT, string ATTACHMENT_
 //------------------------------------------------------------------
 bool MailNotification(string TO, string SUBJECT, string TEXT, string ATTACHMENT_PATH = "", string ATTACHMENT_TITLE = "")
 {
-   gSendMail ("default", TO, SUBJECT, TEXT, ATTACHMENT_PATH, ATTACHMENT_TITLE);
+   return(gSendMail ("default", TO, SUBJECT, TEXT, ATTACHMENT_PATH, ATTACHMENT_TITLE));
 }
 
 //------------------------------------------------------------------
@@ -883,4 +949,4 @@ void DebugStringArray(string arr[])
    for(int i = 0; i < ArraySize(arr); i++)
       Print(i, ":", arr[i]);
 }
-
+//------------------------------------------------------------------
