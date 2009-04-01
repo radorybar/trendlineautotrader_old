@@ -200,12 +200,12 @@ int start()
    for(i = 0; i < ArraySize(AskActionStrings); i++)
    {
       if(ParseActions(AskActionStrings[i], ParsedActions))
-         ExecuteActions(ParsedActions, true);
+         ExecuteActions(AskCrossedObjectNames[i], ParsedActions, true);
    }
    for(i = 0; i < ArraySize(BidActionStrings); i++)
    {
       if(ParseActions(BidActionStrings[i], ParsedActions))
-         ExecuteActions(ParsedActions, false);
+         ExecuteActions(BidCrossedObjectNames[i], ParsedActions, false);
    }
    
    LASTASK = Ask;
@@ -395,34 +395,33 @@ bool ParseActions(string ActionString, string& ParsedAction[])
    return(result);
 }
 
-bool ExecuteActions(string ParsedAction[], bool AskBid)
+bool ExecuteActions(string ObjName, string ParsedAction[], bool AskBid)
 {
    bool result = false;
    int i = 0;
    int OrderID = 0;
-
+   string tmp;
+   
 //determine ORDER_ID of processed action, if there is any defined
 //if there is Order ID deined in action string - it has to be an integer value otherwise cancel action and return error
-   for(i = 0; i < ArraySize(ParsedAction); i++)
+   if(ContainsAction(ParsedAction, ORDER_ID, tmp))
    {
-      if(stringContainsIgnoreCase(ParsedAction[i], ORDER_ID))
+      if(StrToInteger(tmp) > 0)
+         OrderID = StrToInteger(tmp);
+      else
       {
-         if(StrToInteger(ParseActionText(ParsedAction[i])) > 0)
-         {
-            OrderID = StrToInteger(ParseActionText(ParsedAction[i]));
-         }
-         else
-         {
-            return(false);
-         }
+         Print("Error converting Order ID");
+         return(result);
       }
    }
-
+   
+/*
    if(_DEBUG)
    {
       Print("ParsedAction");
       DebugStringArray(ParsedAction);
    }
+*/
 
 // BUY
 //if Ask price crossed
@@ -436,7 +435,14 @@ bool ExecuteActions(string ParsedAction[], bool AskBid)
             if(OrderTicketNumber < 0)
                ErrorCheckup();
             else
+            {
                result = true;
+               ObjectDeactivate(ObjName);
+               if(ContainsAction(ParsedAction, SEND_MAIL, tmp))
+                  SendPredefinedRecipientMail(StringConcatenate("Order ", OrderTicketNumber, " - BUY ", Symbol(), " at : ", Ask), tmp);
+               if(ContainsAction(ParsedAction, SEND_SCREENSHOT, tmp))
+                  SendPredefinedRecipientMail(StringConcatenate("Order ", OrderTicketNumber, " - BUY ", Symbol(), " at : ", Ask), tmp, MakeScreenShot(), "Screenshot");
+            }
          }
 
       if(Ask < LASTASK)
@@ -446,7 +452,14 @@ bool ExecuteActions(string ParsedAction[], bool AskBid)
             if(OrderTicketNumber < 0)
                ErrorCheckup();
             else
+            {
                result = true;
+               ObjectDeactivate(ObjName);
+               if(ContainsAction(ParsedAction, SEND_MAIL, tmp))
+                  SendPredefinedRecipientMail(StringConcatenate("Order ", OrderTicketNumber, " - BUY ", Symbol(), " at : ", Ask), tmp);
+               if(ContainsAction(ParsedAction, SEND_SCREENSHOT, tmp))
+                  SendPredefinedRecipientMail(StringConcatenate("Order ", OrderTicketNumber, " - BUY ", Symbol(), " at : ", Ask), tmp, MakeScreenShot(), "Screenshot");
+            }
          }
    }
 
@@ -461,7 +474,14 @@ bool ExecuteActions(string ParsedAction[], bool AskBid)
             if(OrderTicketNumber < 0)
                ErrorCheckup();
             else
+            {
                result = true;
+               ObjectDeactivate(ObjName);
+               if(ContainsAction(ParsedAction, SEND_MAIL, tmp))
+                  SendPredefinedRecipientMail(StringConcatenate("Order ", OrderTicketNumber, " - SELL ", Symbol(), " at : ", Bid), tmp);
+               if(ContainsAction(ParsedAction, SEND_SCREENSHOT, tmp))
+                  SendPredefinedRecipientMail(StringConcatenate("Order ", OrderTicketNumber, " - SELL ", Symbol(), " at : ", Bid), tmp, MakeScreenShot(), "Screenshot");
+            }
          }
 
       if(Bid > LASTBID)
@@ -471,7 +491,14 @@ bool ExecuteActions(string ParsedAction[], bool AskBid)
             if(OrderTicketNumber < 0)
                ErrorCheckup();
             else
+            {
                result = true;
+               ObjectDeactivate(ObjName);
+               if(ContainsAction(ParsedAction, SEND_MAIL, tmp))
+                  SendPredefinedRecipientMail(StringConcatenate("Order ", OrderTicketNumber, " - SELL ", Symbol(), " at : ", Bid), tmp);
+               if(ContainsAction(ParsedAction, SEND_SCREENSHOT, tmp))
+                  SendPredefinedRecipientMail(StringConcatenate("Order ", OrderTicketNumber, " - SELL ", Symbol(), " at : ", Bid), tmp, MakeScreenShot(), "Screenshot");
+            }
          }
    }
    
@@ -488,7 +515,13 @@ bool ExecuteActions(string ParsedAction[], bool AskBid)
             SendPredefinedRecipientMail(StringConcatenate("Error closing position: ", OrderID), StringConcatenate("Error closing position: ", OrderID, " - number of closed position returned: ", NumberOfClosedPosition));
          }
          else
+         {
             result = true;
+            if(ContainsAction(ParsedAction, SEND_MAIL, tmp))
+               SendPredefinedRecipientMail(StringConcatenate("Order ", OrderID, " closed at: ", Ask), tmp);
+            if(ContainsAction(ParsedAction, SEND_SCREENSHOT, tmp))
+               SendPredefinedRecipientMail(StringConcatenate("Order ", OrderID, " closed at: ", Ask), tmp, MakeScreenShot(), "Screenshot");
+         }
       }
       else
       {
@@ -498,7 +531,13 @@ bool ExecuteActions(string ParsedAction[], bool AskBid)
             SendPredefinedRecipientMail(StringConcatenate("Error closing position: ", OrderID), StringConcatenate("Error closing position: ", OrderID, " - number of closed position returned: ", NumberOfClosedPosition));
          }
          else
+         {
             result = true;
+            if(ContainsAction(ParsedAction, SEND_MAIL, tmp))
+               SendPredefinedRecipientMail(StringConcatenate("Order ", OrderID, " closed at: ", Bid), tmp);
+            if(ContainsAction(ParsedAction, SEND_SCREENSHOT, tmp))
+               SendPredefinedRecipientMail(StringConcatenate("Order ", OrderID, " closed at: ", Bid), tmp, MakeScreenShot(), "Screenshot");
+         }
       }
    }
 
@@ -527,14 +566,40 @@ bool ExecuteActions(string ParsedAction[], bool AskBid)
    if(stringContainsIgnoreCase(ParsedAction[0], SEND_MAIL))
    {
       sent = SendPredefinedRecipientMail(ParseActionText(ParsedAction[0]), ParseActionText(ParsedAction[0]));
+      ObjectDeactivate(ObjName);
    }
 
 //SEND_SCREENSHOT
    if(stringContainsIgnoreCase(ParsedAction[0], SEND_SCREENSHOT))
    {
-      sent = SendPredefinedRecipientMail(ParsedAction[0], ParsedAction[0], MakeScreenShot(), ParsedAction[0]);
+      sent = SendPredefinedRecipientMail(ParseActionText(ParsedAction[0]), ParseActionText(ParsedAction[0]), MakeScreenShot(), "Screenshot");
+      ObjectDeactivate(ObjName);
    }
 
+   return(result);
+}
+
+bool ContainsAction(string ParsedAction[], string Action, string& ActionText)
+{
+   bool result = false;
+   
+   for(int i = 0; i < ArraySize(ParsedAction); i++)
+   {
+      if(stringContainsIgnoreCase(ParsedAction[i], Action))
+      {
+         ActionText = ParseActionText(ParsedAction[i]);
+         result = true;
+         break;
+      }
+   }
+}
+
+bool ObjectDeactivate(string ObjName)
+{
+   bool result = false;
+   
+   result = ObjectSetText(ObjName, StringConcatenate("-", ObjectDescription(ObjName)));
+   
    return(result);
 }
 
@@ -924,11 +989,13 @@ string MakeScreenShot()
    string ResultFileName = "";
    string FileName;
    
-   FileName = StringConcatenate(TimeToStr(TimeCurrent(), TIME_DATE), "_", TimeToStr(TimeCurrent(), TIME_SECONDS));
+   FileName = StringConcatenate(TimeToStr(TimeCurrent(), TIME_DATE), "_", TimeCurrent(), ".gif");
    
    if(WindowScreenShot(FileName, X_SIZE, Y_SIZE))
       ResultFileName = FileName;
-      
+   else
+      ErrorCheckup();
+   
    return(ResultFileName);
 }
 
@@ -938,8 +1005,9 @@ void ErrorCheckup()
    int error = GetLastError();
    if(_SENT_MAIL_NOTIFI_ON_ERROR == 1)
    {
-      SendPredefinedRecipientMail(StringConcatenate("Error number ", error, " occured!"), StringConcatenate("Error number ", error, " occured! \nError description: ", ErrorDescription(error)));
+      SendPredefinedRecipientMail(StringConcatenate("Error number ", error, " occured!"), StringConcatenate(" Error number ", error, " occured! \nError description: ", ErrorDescription(error)));
    }
+   Print(StringConcatenate("Error number ", error, " occured!"), StringConcatenate(" Error number ", error, " occured! \nError description: ", ErrorDescription(error)));
 }
 
 //------------------------------------------------------------------
