@@ -8,9 +8,6 @@
 
 bool        _DEBUG =                   true;
 
-#define     _MAGICNUMBER               1000
-
-
 //------------------------------------------------------------------
 //------------------------------------------------------------------
 //------------------------------------------------------------------
@@ -82,10 +79,10 @@ int   _MIN_TAKEPROFIT_DISTANCE      = 10;
 #define ORDER_ID                "ORDER_ID"
 */
 
-#define BUY_STOP				     "BUYSTP"
-#define BUY_LIMIT               "BUYLMT"
-#define SELL_STOP               "SELLSTP"
-#define SELL_LIMIT              "SELLLMT"
+#define BUY_STOP				     "BUYSTOP"
+#define BUY_LIMIT               "BUYLIMIT"
+#define SELL_STOP               "SELLSTOP"
+#define SELL_LIMIT              "SELLLIMIT"
 #define SEND_MAIL               "MAIL"
 #define SEND_SCREENSHOT         "SCREEN"
 #define ORDER_CLOSE             "ORDRCLOSE"
@@ -232,17 +229,19 @@ int start()
 //------------------------------------------------------------------
 //------------------------------------------------------------------
 //------------------------------------------------------------------
-bool GetRelevantObjects(int _OBJECT_TYPES[], string& RelevantObjectNames[])
+bool GetRelevantObjects(int OBJECT_TYPES[], string& RelevantObjectNames[])
 {
    bool result = true;
    ArrayResize(RelevantObjectNames, 0);
    
    for(int i = 0; i < ObjectsTotal(); i++)
    {
-      for(int j = 0; j < ArraySize(_OBJECT_TYPES); j++)
+      for(int j = 0; j < ArraySize(OBJECT_TYPES); j++)
       {
-         if(ObjectType(ObjectName(i)) == _OBJECT_TYPES[j])
+         
+         if(ObjectType(ObjectName(i)) == OBJECT_TYPES[j])
          {
+//            Print("i: ", i, " j: ", j, " ObjectName: ", ObjectName(i), " OBJECT_TYPES[j]: ", _OBJECT_TYPES[j]);
             ArrayResize(RelevantObjectNames, ArraySize(RelevantObjectNames) + 1);
             RelevantObjectNames[ArraySize(RelevantObjectNames) - 1] = ObjectName(i);
          }
@@ -411,7 +410,7 @@ bool ExecuteActions(string ObjName, string ParsedAction[], bool AskBid)
 {
    bool result = false;
    int i = 0;
-   int OrderID = 0;
+   int OrderID = 0, NumberOfPosition = 0, NumberOfClosedPosition = 0;
    string parsedtext, screenshotname;
    
    screenshotname = MakeScreenShot();
@@ -517,34 +516,40 @@ bool ExecuteActions(string ObjName, string ParsedAction[], bool AskBid)
 //ORDER_CLOSE
    if(stringContainsIgnoreCase(ParsedAction[0], ORDER_CLOSE))
    {
-      int NumberOfClosedPosition = 0;
 //if Ask price crossed
       if(AskBid)
       {
-         NumberOfClosedPosition = CloseAllLongPositions(OrderID);
-         if(NumberOfClosedPosition != 1)
+         NumberOfPosition = getOrdersTotalByMagicnumber(OrderID);
+         NumberOfClosedPosition = CloseAllShortPositions(OrderID);
+         Print("AskBid: ", AskBid, " NumberOfPosition: ", NumberOfPosition, ", NumberOfClosedPosition: ", NumberOfClosedPosition);
+         if(NumberOfClosedPosition != NumberOfPosition)
          {
             SendPredefinedRecipientMail(StringConcatenate("Error closing position: ", OrderID), StringConcatenate("Error closing position: ", OrderID, " - number of closed position returned: ", NumberOfClosedPosition));
          }
          else
          {
             result = true;
+            ObjectDeactivate(ObjName);
             if(ContainsAction(ParsedAction, SEND_MAIL, parsedtext))
                SendPredefinedRecipientMail(StringConcatenate("Order ", OrderID, " closed at: ", Ask), StringConcatenate(ParsedAction[0], ": ", parsedtext));
             if(ContainsAction(ParsedAction, SEND_SCREENSHOT, parsedtext))
                SendPredefinedRecipientMail(StringConcatenate("Order ", OrderID, " closed at: ", Ask), StringConcatenate(ParsedAction[0], ": ", parsedtext), StringConcatenate(_FILES_DIRECTORY, screenshotname), screenshotname);
          }
       }
-      else
+      
+      if(!AskBid)
       {
-         NumberOfClosedPosition = CloseAllShortPositions(OrderID);
-         if(NumberOfClosedPosition != 1)
+         NumberOfPosition = getOrdersTotalByMagicnumber(OrderID);
+         NumberOfClosedPosition = CloseAllLongPositions(OrderID);
+         Print("AskBid: ", AskBid, " NumberOfPosition: ", NumberOfPosition, ", NumberOfClosedPosition: ", NumberOfClosedPosition);
+         if(NumberOfClosedPosition != NumberOfPosition)
          {
             SendPredefinedRecipientMail(StringConcatenate("Error closing position: ", OrderID), StringConcatenate("Error closing position: ", OrderID, " - number of closed position returned: ", NumberOfClosedPosition));
          }
          else
          {
             result = true;
+            ObjectDeactivate(ObjName);
             if(ContainsAction(ParsedAction, SEND_MAIL, parsedtext))
                SendPredefinedRecipientMail(StringConcatenate("Order ", OrderID, " closed at: ", Bid), StringConcatenate(ParsedAction[0], ": ", parsedtext));
             if(ContainsAction(ParsedAction, SEND_SCREENSHOT, parsedtext))
@@ -688,7 +693,7 @@ bool TradeAllowed(int MAXORDERS)
 //Trade only once on each bar
    if(!IsTradeAllowed()) 
       return(false);
-   if(getOrdersTotalByMagicnumber(_MAGICNUMBER) >= MAXORDERS)
+   if(OrdersTotal() >= MAXORDERS)
       return(false);
    return(true);
 }
@@ -956,6 +961,8 @@ int ClosePositions(int OrderTickets2Close[])
    {
       closed += ClosePosition(OrderTickets2Close[i]);
    }
+   
+   return(closed);
 }
 //------------------------------------------------------------------------------------
 // Close position by ticket
@@ -967,12 +974,18 @@ int ClosePosition(int OrderTicket2Close)
    if(OrderSelect(OrderTicket2Close, SELECT_BY_TICKET))
    {
       if(OrderType() == OP_SELL)
+      {
          if(OrderClose(OrderTicket(), OrderLots(), Ask, 3, Orange))
             result = 1;
+      }
       else if(OrderType() == OP_BUY)
+      {
          if(OrderClose(OrderTicket(), OrderLots(), Bid, 3, Orange))
             result = 1;
+      }
    }
+   
+   Print("Closed position: ", OrderTicket2Close, ", result: ", result);
    
    if(result == 0)
       ErrorCheckup();
