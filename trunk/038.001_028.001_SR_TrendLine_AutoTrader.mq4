@@ -427,12 +427,14 @@ bool ExecuteActions(string ObjName, string ParsedAction[], bool AskBid)
          return(result);
       }
    }
-   
+
+/*   
    if(_DEBUG)
    {
       Print("ParsedAction");
       DebugStringArray(ParsedAction);
    }
+*/
 
 // BUY
 //if Ask price crossed
@@ -450,7 +452,10 @@ bool ExecuteActions(string ObjName, string ParsedAction[], bool AskBid)
                result = true;
                ObjectDeactivate(ObjName);
                if(ContainsAction(ParsedAction, SEND_MAIL, parsedtext))
+               {
+                  Print(StringConcatenate("Order ", OrderTicketNumber, " - BUY ", Symbol(), " at : ", Ask), StringConcatenate(ParsedAction[0], ": ", parsedtext));
                   SendPredefinedRecipientMail(StringConcatenate("Order ", OrderTicketNumber, " - BUY ", Symbol(), " at : ", Ask), StringConcatenate(ParsedAction[0], ": ", parsedtext));
+               }
                if(ContainsAction(ParsedAction, SEND_SCREENSHOT, parsedtext))
                   SendPredefinedRecipientMail(StringConcatenate("Order ", OrderTicketNumber, " - BUY ", Symbol(), " at : ", Ask), StringConcatenate(ParsedAction[0], ": ", parsedtext), StringConcatenate(_FILES_DIRECTORY, screenshotname), screenshotname);
             }
@@ -582,7 +587,7 @@ bool ExecuteActions(string ObjName, string ParsedAction[], bool AskBid)
 //SEND_MAIL   
    if(stringContainsIgnoreCase(ParsedAction[0], SEND_MAIL))
    {
-      sent = SendPredefinedRecipientMail(StringConcatenate(ParsedAction[0], ": ", ParseActionText(ParsedAction[0])), StringConcatenate(ParsedAction[0], ": ", ParseActionText(ParsedAction[0])));
+      sent = SendPredefinedRecipientMail("Mail notification", ParseActionText(ParsedAction[0]));
       if(!sent)
          ErrorCheckup();
       ObjectDeactivate(ObjName);
@@ -591,7 +596,7 @@ bool ExecuteActions(string ObjName, string ParsedAction[], bool AskBid)
 //SEND_SCREENSHOT
    if(stringContainsIgnoreCase(ParsedAction[0], SEND_SCREENSHOT))
    {
-      sent = SendPredefinedRecipientMail(StringConcatenate(ParsedAction[0], ": ", ParseActionText(ParsedAction[0])), StringConcatenate(ParsedAction[0], ": ", ParseActionText(ParsedAction[0])), StringConcatenate(_FILES_DIRECTORY, screenshotname), screenshotname);
+      sent = SendPredefinedRecipientMail("Mail notification with screenshot attached", ParseActionText(ParsedAction[0]), StringConcatenate(_FILES_DIRECTORY, screenshotname), screenshotname);
       if(!sent)
          ErrorCheckup();
       ObjectDeactivate(ObjName);
@@ -613,6 +618,9 @@ bool ContainsAction(string ParsedAction[], string Action, string& ActionText)
          break;
       }
    }
+
+//   Print("function-ContainsAction ParsedAction: ", ParsedAction[i], " Action: ", Action, " ActionText: ", ActionText);
+   return(result);
 }
 
 bool ObjectDeactivate(string ObjName)
@@ -630,12 +638,16 @@ bool ObjectDeactivate(string ObjName)
 
 string ParseActionText(string ActionItem)
 {
-   string result = " ";
+   string result = "";
 
+   
 //search for all action keywords, and parse only text behind this keyword   
    for(int j = 0; j < ArraySize(_ACTION_LANGUAGE_COMMANDS); j++)
+   {
+//      Print(stringToLowerCase(ActionItem), " ", stringToLowerCase(_ACTION_LANGUAGE_COMMANDS[j]), " ", StringFind(stringToLowerCase(ActionItem), stringToLowerCase(_ACTION_LANGUAGE_COMMANDS[j])) > -1);
       if(stringContainsIgnoreCase(ActionItem, _ACTION_LANGUAGE_COMMANDS[j]))
       {
+//         Print("ActionItem: ", ActionItem, " _ACTION_LANGUAGE_COMMANDS[j]: ", _ACTION_LANGUAGE_COMMANDS[j]);
 //if action keyword found, cut it from the result action text
          result = StringTrimLeft(StringTrimRight(StringSubstr(ActionItem, stringFindIgnoreCase(ActionItem, _ACTION_LANGUAGE_COMMANDS[j]) + StringLen(_ACTION_LANGUAGE_COMMANDS[j]) + 1)));
          
@@ -646,11 +658,16 @@ string ParseActionText(string ActionItem)
          )
          result = StringSubstr(result, 1);
       }
+   }
+
 //if still no keyword has been found
    if(StringLen(result) == 0)
       for(j = 0; j < ArraySize(_ACTION_LANGUAGE_ITEMS); j++)
+      {
+//         Print(stringToLowerCase(ActionItem), " ", stringToLowerCase(_ACTION_LANGUAGE_ITEMS[j]), " ", StringFind(stringToLowerCase(ActionItem), stringToLowerCase(_ACTION_LANGUAGE_ITEMS[j])) > -1);
          if(stringContainsIgnoreCase(ActionItem, _ACTION_LANGUAGE_ITEMS[j]))
          {
+//            Print("ActionItem: ", ActionItem, " _ACTION_LANGUAGE_ITEMS[j]: ", _ACTION_LANGUAGE_ITEMS[j]);
 //if action keyword found, cut it from the result action text
             result = StringTrimLeft(StringTrimRight(StringSubstr(ActionItem, stringFindIgnoreCase(ActionItem, _ACTION_LANGUAGE_COMMANDS[j]) + StringLen(_ACTION_LANGUAGE_COMMANDS[j]) + 1)));
 //if after action keyword follows one of these letters, cut it also - it is a kind of delimiter for better readibility
@@ -660,7 +677,9 @@ string ParseActionText(string ActionItem)
             )
             result = StringSubstr(result, 1);
          }
-   Print("ParseActionText: ", ActionItem, ", |", result, "|");
+      }
+      
+//   Print("ParseActionText: ", ActionItem, ", |", result, "|");
    return(result);
 }
 
@@ -1013,7 +1032,7 @@ bool MailNotification(string TO, string SUBJECT = "", string TEXT = "", string A
    bool result = false;
    
    int sent = gSendMail("default", TO, SUBJECT, TEXT, ATTACHMENT_PATH, ATTACHMENT_TITLE);
-   Print(sent);
+//   Print(sent);
    if(sent == 1)
    {
       result = true;
