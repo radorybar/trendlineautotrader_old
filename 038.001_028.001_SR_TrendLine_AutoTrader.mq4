@@ -241,9 +241,10 @@ bool GetRelevantObjects(int OBJECT_TYPES[], string& RelevantObjectNames[])
          
          if(ObjectType(ObjectName(i)) == OBJECT_TYPES[j])
          {
-//            Print("i: ", i, " j: ", j, " ObjectName: ", ObjectName(i), " OBJECT_TYPES[j]: ", _OBJECT_TYPES[j]);
+//            Print("i: ", i, " j: ", j, " ObjectName: ", ObjectName(i), " OBJECT_TYPES[j]: ", OBJECT_TYPES[j]);
             ArrayResize(RelevantObjectNames, ArraySize(RelevantObjectNames) + 1);
             RelevantObjectNames[ArraySize(RelevantObjectNames) - 1] = ObjectName(i);
+            break;
          }
       }
    }
@@ -291,7 +292,9 @@ bool GetAskCrossedObjects(string RelevantObjectNames[], string& CrossedObjectNam
    
    for(int i = 0; i < ArraySize(RelevantObjectNames); i++)
    {
-      if(PriceCrossedValue(ObjectGetValueByShift(RelevantObjectNames[i], 0), true))
+//      Print("i: ", i, " RelevantObjectNames[i]: ", RelevantObjectNames[i], " ObjectGetValueByShift(RelevantObjectNames[i], 0): ", ObjectGetValueByShift(RelevantObjectNames[i], 0), " PriceCrossedValue(ObjectGetValueByShift(RelevantObjectNames[i], 0), true): ", PriceCrossedValue(ObjectGetValueByShift(RelevantObjectNames[i], 0), true));
+
+      if(PriceCrossedValue(RelevantObjectNames[i], true))
       {
          ArrayResize(CrossedObjectNames, ArraySize(CrossedObjectNames) + 1);
          CrossedObjectNames[ArraySize(CrossedObjectNames) - 1] = RelevantObjectNames[i];
@@ -308,11 +311,41 @@ bool GetBidCrossedObjects(string RelevantObjectNames[], string& CrossedObjectNam
 
    for(int i = 0; i < ArraySize(RelevantObjectNames); i++)
    {
-      if(PriceCrossedValue(ObjectGetValueByShift(RelevantObjectNames[i], 0), false))
+      if(PriceCrossedValue(RelevantObjectNames[i], false))
       {
          ArrayResize(CrossedObjectNames, ArraySize(CrossedObjectNames) + 1);
          CrossedObjectNames[ArraySize(CrossedObjectNames) - 1] = RelevantObjectNames[i];
       }
+   }
+
+   return(result);
+}
+
+bool PriceCrossedValue(string ObjName, bool AskBid)
+{
+   bool result = false;
+   double Value = 0;   
+   
+   if(ObjectType(ObjName) == OBJ_TREND)
+      Value = ObjectGetValueByShift(ObjName, 0);
+   else if(ObjectType(ObjName) == OBJ_HLINE)
+      Value = ObjectGet(ObjName, OBJPROP_PRICE1);
+   else
+      Value = ObjectGetValueByShift(ObjName, 0);
+   
+   if(AskBid)
+   {
+      if(Ask >= Value && LASTASK <= Value)
+         result = true;
+      if(Ask <= Value && LASTASK >= Value)
+         result = true;
+   }
+   else
+   {
+      if(Bid <= Value && LASTBID >= Value)
+         result = true;
+      if(Bid >= Value && LASTBID <= Value)
+         result = true;
    }
 
    return(result);
@@ -683,27 +716,6 @@ string ParseActionText(string ActionItem)
    return(result);
 }
 
-bool PriceCrossedValue(double Value, bool AskBid)
-{
-   bool result = false;
-   
-   if(AskBid)
-   {
-      if(Ask >= Value && LASTASK <= Value)
-         result = true;
-      if(Ask <= Value && LASTASK >= Value)
-         result = true;
-   }
-   else
-   {
-      if(Bid <= Value && LASTBID >= Value)
-         result = true;
-      if(Bid >= Value && LASTBID <= Value)
-         result = true;
-   }
-
-   return(result);
-}
 //------------------------------------------------------------------
 // TradeAllowed function return true if trading is possible         
 //------------------------------------------------------------------
