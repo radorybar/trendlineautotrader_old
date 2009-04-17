@@ -18,6 +18,7 @@ bool        _DEBUG =                   true;
 #define     _FILES_DIRECTORY           "C:\\Program Files\\XTB-Trader 4\\experts\\files\\"
 #define     _SCREENSHOT_X_SIZE         1600
 #define     _SCREENSHOT_Y_SIZE         1200
+#define     _AUTO_SCREENSHOT_PERIOD    PERIOD_H1
 
 //------------------------------------------------------------------
 //------------------------------------------------------------------
@@ -177,6 +178,9 @@ int start()
    string AskActionStrings[];
    string BidActionStrings[];
    string ParsedActions[];
+   
+   if(iVolume(Symbol(), _AUTO_SCREENSHOT_PERIOD, 0) == 1)
+      MakeScreenShot();
    
    if(LASTASK == Ask && LASTBID == Bid)
       return(0);
@@ -1065,7 +1069,7 @@ string MakeScreenShot()
    string ResultFileName = "";
    string FileName;
    
-   FileName = StringConcatenate(TimeToStr(TimeCurrent(), TIME_DATE), "_", TimeCurrent(), ".gif");
+   FileName = StringConcatenate(TimeToStr(TimeCurrent(), TIME_DATE), "_", TimeHour(TimeCurrent()), ":", TimeMinute(TimeCurrent()), ":", TimeSeconds(TimeCurrent()), ".gif");
    
    if(WindowScreenShot(FileName, X_SIZE, Y_SIZE))
    {
