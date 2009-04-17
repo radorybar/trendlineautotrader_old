@@ -1,4 +1,5 @@
 #summary Expert advisor for Metatrader 4 - Order management by charting objects (trendlines, horizontal lines, ...)
+#labels Featured,Phase-Design
 
 = Introduction =
 
