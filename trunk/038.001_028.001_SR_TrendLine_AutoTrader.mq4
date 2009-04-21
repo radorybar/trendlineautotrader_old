@@ -151,6 +151,8 @@ int _MAX_ACTION_LANGUAGE_ITEMS = 100;
 static double LASTASK;
 static double LASTBID;
 
+string UsedOrderIDsInfo = "";
+
 //------------------------------------------------------------------
 //------------------------------------------------------------------
 //------------------------------------------------------------------
@@ -177,6 +179,7 @@ int start()
    string BidCrossedObjectNames[];
    string AskActionStrings[];
    string BidActionStrings[];
+   string AllActionStrings[];
    string ParsedActions[];
    
    if(iVolume(Symbol(), _AUTO_SCREENSHOT_PERIOD, 0) == 1)
@@ -220,6 +223,20 @@ int start()
       if(ParseActions(BidActionStrings[i], ParsedActions))
          ExecuteActions(BidCrossedObjectNames[i], ParsedActions, false);
    }
+   
+//should parse all actions from all objects
+//Get all used order IDs from active orders and from all relevant objects
+   UsedOrderIDsInfo = UsedOrderIDs();
+
+   if(!GetActionStrings(RelevantObjectNames, AllActionStrings))
+      return(7);
+   for(i = 0; i < ArraySize(AllActionStrings); i++)
+   {
+      if(ParseActions(AllActionStrings[i], ParsedActions))
+         UsedOrderIDsInfo = StringConcatenate(UsedOrderIDsInfo, "\n", ParseOrderIdFromActionString(ParsedActions));
+   }
+
+   Comment(UsedOrderIDsInfo);
    
    LASTASK = Ask;
    LASTBID = Bid;
@@ -465,6 +482,8 @@ bool ExecuteActions(string ObjName, string ParsedAction[], bool AskBid)
       }
    }
 
+   UsedOrderIDsInfo = StringConcatenate(UsedOrderIDsInfo, "\n", OrderID);
+   
 /*   
    if(_DEBUG)
    {
@@ -561,8 +580,18 @@ bool ExecuteActions(string ObjName, string ParsedAction[], bool AskBid)
 //if Ask price crossed
       if(AskBid)
       {
-         NumberOfPosition = getOrdersTotalByMagicnumber(OrderID);
-         NumberOfClosedPosition = CloseAllShortPositions(OrderID);
+//OrderID can be a ticket number
+         if(OrderSelect(OrderID, SELECT_BY_TICKET) == true)
+         {
+            NumberOfPosition = 1;
+            NumberOfClosedPosition = ClosePosition(OrderID);
+         }
+//if OrderID is not a Ticketnumber - it can be a MAGICNUMBER
+         else
+         {
+            NumberOfPosition = getOrdersTotalByMagicnumber(OrderID);
+            NumberOfClosedPosition = CloseAllShortPositions(OrderID);
+         }
          Print("AskBid: ", AskBid, " NumberOfPosition: ", NumberOfPosition, ", NumberOfClosedPosition: ", NumberOfClosedPosition);
          if(NumberOfClosedPosition != NumberOfPosition)
          {
@@ -1069,7 +1098,18 @@ string MakeScreenShot()
    string ResultFileName = "";
    string FileName;
    
-   FileName = StringConcatenate(TimeToStr(TimeCurrent(), TIME_DATE), "_", TimeHour(TimeCurrent()), ":", TimeMinute(TimeCurrent()), ":", TimeSeconds(TimeCurrent()), ".gif");
+   string hours = DoubleToStr(TimeHour(TimeCurrent()), 0);
+   string minutes = DoubleToStr(TimeMinute(TimeCurrent()), 0);
+   string seconds = DoubleToStr(TimeSeconds(TimeCurrent()), 0);
+   
+   if(StringLen(hours) == 1)
+      hours = StringConcatenate("0", hours);
+   if(StringLen(minutes) == 1)
+      minutes = StringConcatenate("0", minutes);
+   if(StringLen(seconds) == 1)
+      seconds = StringConcatenate("0", seconds);
+   
+   FileName = StringConcatenate(TimeToStr(TimeCurrent(), TIME_DATE), "_", hours, "-", minutes, "-", seconds, ".gif");
    
    if(WindowScreenShot(FileName, X_SIZE, Y_SIZE))
    {
@@ -1100,3 +1140,37 @@ void DebugStringArray(string arr[])
       Print(i, ":", arr[i]);
 }
 //------------------------------------------------------------------
+string UsedOrderIDs()
+{
+   string comment = "\nUsed ORDER IDs:\nMAGIC NUMBER - TICKET NUMBER\n";
+   
+   for(int i = 0; i < OrdersTotal(); i++)
+   {
+      OrderSelect(i, SELECT_BY_POS);
+      comment = StringConcatenate(comment, OrderMagicNumber(), " - ", OrderTicket(), "\n");
+   }
+   
+   return(comment);
+}
+//------------------------------------------------------------------
+int ParseOrderIdFromActionString(string ParsedAction[])
+{
+   int OrderID;
+   string parsedtext = "";
+   
+//determine ORDER_ID of processed action, if there is any defined
+//if there is Order ID deined in action string - it has to be an integer value otherwise cancel action and return error
+   if(ContainsAction(ParsedAction, ORDER_ID, parsedtext))
+   {
+      if(StrToInteger(parsedtext) > 0)
+         OrderID = StrToInteger(parsedtext);
+      else
+      {
+         Print("Error converting Order ID");
+         return(0);
+      }
+   }
+
+   return(OrderID);
+//   UsedOrderIDsInfo = StringConcatenate(UsedOrderIDsInfo, "\n", OrderID);
+}
