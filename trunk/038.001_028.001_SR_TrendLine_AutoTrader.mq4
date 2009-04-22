@@ -507,11 +507,11 @@ bool ExecuteActions(string ObjName, string ParsedAction[], bool AskBid)
                ObjectDeactivate(ObjName);
                
                OrderSelect(OrderTicketNumber, SELECT_BY_TICKET);
-               screenshotname = MakeScreenShot(StringConcatenate("BUYSTOP_", Symbol(), "_", OrderLots(), "_", DoubleToStr(OrderTicketNumber, 0)));
+               screenshotname = MakeScreenShot(StringConcatenate("BUYSTOP_", OrderLots(), "_", DoubleToStr(OrderTicketNumber, 0)));
 
                if(ContainsAction(ParsedAction, SEND_MAIL, parsedtext))
                {
-                  Print(StringConcatenate("Order ", OrderTicketNumber, " - BUY ", Symbol(), " at : ", Ask), StringConcatenate(ParsedAction[0], ": ", parsedtext));
+//                  Print(StringConcatenate("Order ", OrderTicketNumber, " - BUY ", Symbol(), " at : ", Ask), StringConcatenate(ParsedAction[0], ": ", parsedtext));
                   SendPredefinedRecipientMail(StringConcatenate("Order ", OrderTicketNumber, " - BUY ", Symbol(), " at : ", Ask), StringConcatenate(ParsedAction[0], ": ", parsedtext));
                }
                if(ContainsAction(ParsedAction, SEND_SCREENSHOT, parsedtext))
@@ -531,7 +531,7 @@ bool ExecuteActions(string ObjName, string ParsedAction[], bool AskBid)
                ObjectDeactivate(ObjName);
 
                OrderSelect(OrderTicketNumber, SELECT_BY_TICKET);
-               screenshotname = MakeScreenShot(StringConcatenate("BUYLIMIT_", Symbol(), "_", OrderLots(), "_", DoubleToStr(OrderTicketNumber, 0)));
+               screenshotname = MakeScreenShot(StringConcatenate("BUYLIMIT_", OrderLots(), "_", DoubleToStr(OrderTicketNumber, 0)));
                
                if(ContainsAction(ParsedAction, SEND_MAIL, parsedtext))
                   SendPredefinedRecipientMail(StringConcatenate("Order ", OrderTicketNumber, " - BUY ", Symbol(), " at : ", Ask), StringConcatenate(ParsedAction[0], ": ", parsedtext));
@@ -557,7 +557,7 @@ bool ExecuteActions(string ObjName, string ParsedAction[], bool AskBid)
                ObjectDeactivate(ObjName);
                
                OrderSelect(OrderTicketNumber, SELECT_BY_TICKET);
-               screenshotname = MakeScreenShot(StringConcatenate("SELLSTOP_", Symbol(), "_", OrderLots(), "_", DoubleToStr(OrderTicketNumber, 0)));
+               screenshotname = MakeScreenShot(StringConcatenate("SELLSTOP_", OrderLots(), "_", DoubleToStr(OrderTicketNumber, 0)));
                
                if(ContainsAction(ParsedAction, SEND_MAIL, parsedtext))
                   SendPredefinedRecipientMail(StringConcatenate("Order ", OrderTicketNumber, " - SELL ", Symbol(), " at : ", Bid), StringConcatenate(ParsedAction[0], ": ", parsedtext));
@@ -578,7 +578,7 @@ bool ExecuteActions(string ObjName, string ParsedAction[], bool AskBid)
                ObjectDeactivate(ObjName);
                
                OrderSelect(OrderTicketNumber, SELECT_BY_TICKET);
-               screenshotname = MakeScreenShot(StringConcatenate("SELLLIMIT_", Symbol(), "_", OrderLots(), "_", DoubleToStr(OrderTicketNumber, 0)));
+               screenshotname = MakeScreenShot(StringConcatenate("SELLLIMIT_", OrderLots(), "_", DoubleToStr(OrderTicketNumber, 0)));
                
                if(ContainsAction(ParsedAction, SEND_MAIL, parsedtext))
                   SendPredefinedRecipientMail(StringConcatenate("Order ", OrderTicketNumber, " - SELL ", Symbol(), " at : ", Bid), StringConcatenate(ParsedAction[0], ": ", parsedtext));
@@ -616,7 +616,7 @@ bool ExecuteActions(string ObjName, string ParsedAction[], bool AskBid)
             result = true;
             ObjectDeactivate(ObjName);
             
-            screenshotname = MakeScreenShot(StringConcatenate("CLOSESELL_", Symbol(), "_", DoubleToStr(OrderID, 0)));
+            screenshotname = MakeScreenShot(StringConcatenate("CLOSESELL_", DoubleToStr(OrderID, 0)));
             
             if(ContainsAction(ParsedAction, SEND_MAIL, parsedtext))
                SendPredefinedRecipientMail(StringConcatenate("Order ", OrderID, " closed at: ", Ask), StringConcatenate(ParsedAction[0], ": ", parsedtext));
@@ -639,7 +639,7 @@ bool ExecuteActions(string ObjName, string ParsedAction[], bool AskBid)
             result = true;
             ObjectDeactivate(ObjName);
             
-            screenshotname = MakeScreenShot(StringConcatenate("CLOSEBUY_", Symbol(), "_", DoubleToStr(OrderID, 0)));
+            screenshotname = MakeScreenShot(StringConcatenate("CLOSEBUY_", DoubleToStr(OrderID, 0)));
             
             if(ContainsAction(ParsedAction, SEND_MAIL, parsedtext))
                SendPredefinedRecipientMail(StringConcatenate("Order ", OrderID, " closed at: ", Bid), StringConcatenate(ParsedAction[0], ": ", parsedtext));
@@ -1132,7 +1132,7 @@ string MakeScreenShot(string Postfix = "")
    if(StringLen(Postfix) > 0)
       Postfix = StringConcatenate("_", Postfix);
    
-   FileName = StringConcatenate(TimeToStr(TimeCurrent(), TIME_DATE), "_", hours, "-", minutes, "-", seconds, Postfix, ".gif");
+   FileName = StringConcatenate(TimeToStr(TimeCurrent(), TIME_DATE), "_", hours, "-", minutes, "-", seconds, "_", Symbol(), Postfix, ".gif");
    
    if(WindowScreenShot(FileName, X_SIZE, Y_SIZE))
    {
