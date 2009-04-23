@@ -25,3 +25,6 @@ It is planned, or is already implemented following functionality:
     * management of multiple orders by unique ID
 
 all these will be proceded by charting trendlines description. There is an easy language, which can help you to manage your orders.
+
+Here is an example of such a graphic trading:
+http://turtle.vpscustomer.com/screenshots/2009.04.23_09-00-01_EURUSD.gif
