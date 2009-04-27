@@ -173,73 +173,85 @@ int deinit()
 
 int start()
 {
-   int i = 0;
-   string RelevantObjectNames[];
-   string AskCrossedObjectNames[];
-   string BidCrossedObjectNames[];
-   string AskActionStrings[];
-   string BidActionStrings[];
-   string AllActionStrings[];
-   string ParsedActions[];
-   
-   if(iVolume(Symbol(), _AUTO_SCREENSHOT_PERIOD, 0) == 1)
-      MakeScreenShot();
-   
-   if(LASTASK == Ask && LASTBID == Bid)
-      return(0);
-   
-   //should return all object names - ids which are relevant for autotrader
-   if(!GetRelevantObjects(_OBJECT_TYPES, RelevantObjectNames))
-      return(1);
-   
-   //should filter and return only all active object names
-   if(!FilterActiveObjects(RelevantObjectNames))
-      return(2);
 
-   //should return all object names - ids which were crossed by Ask price
-   if(!GetAskCrossedObjects(RelevantObjectNames, AskCrossedObjectNames))
-      return(3);
-
-   //should return all object names - ids which were crossed by Bid price
-   if(!GetBidCrossedObjects(RelevantObjectNames, BidCrossedObjectNames))
-      return(4);
-
-   //should parse all Ask cross actions from all Ask crossed objects
-   if(!GetActionStrings(AskCrossedObjectNames, AskActionStrings))
-      return(5);
+/*
+   while(!IsStopped())     // Until user.. 
+   {                       // ..stops execution of the program
+      RefreshRates();      // Data renewal
+*/      
    
-   //should parse all Bid cross actions from all Bid crossed objects
-   if(!GetActionStrings(BidCrossedObjectNames, BidActionStrings))
-      return(6);
+      int i = 0;
+      string RelevantObjectNames[];
+      string AskCrossedObjectNames[];
+      string BidCrossedObjectNames[];
+      string AskActionStrings[];
+      string BidActionStrings[];
+      string AllActionStrings[];
+      string ParsedActions[];
+   
+      if(iVolume(Symbol(), _AUTO_SCREENSHOT_PERIOD, 0) == 1)
+         MakeScreenShot();
+   
+      if(LASTASK == Ask && LASTBID == Bid)
+         return(0);
+   
+      //should return all object names - ids which are relevant for autotrader
+      if(!GetRelevantObjects(_OBJECT_TYPES, RelevantObjectNames))
+         return(1);
+   
+      //should filter and return only all active object names
+      if(!FilterActiveObjects(RelevantObjectNames))
+         return(2);
 
-   //should execute all actions in pool
-   for(i = 0; i < ArraySize(AskActionStrings); i++)
-   {
-      if(ParseActions(AskActionStrings[i], ParsedActions))
-         ExecuteActions(AskCrossedObjectNames[i], ParsedActions, true);
+      //should return all object names - ids which were crossed by Ask price
+      if(!GetAskCrossedObjects(RelevantObjectNames, AskCrossedObjectNames))
+         return(3);
+
+      //should return all object names - ids which were crossed by Bid price
+      if(!GetBidCrossedObjects(RelevantObjectNames, BidCrossedObjectNames))
+         return(4);
+
+      //should parse all Ask cross actions from all Ask crossed objects
+      if(!GetActionStrings(AskCrossedObjectNames, AskActionStrings))
+         return(5);
+   
+      //should parse all Bid cross actions from all Bid crossed objects
+      if(!GetActionStrings(BidCrossedObjectNames, BidActionStrings))
+         return(6);
+
+      //should execute all actions in pool
+      for(i = 0; i < ArraySize(AskActionStrings); i++)
+      {
+         if(ParseActions(AskActionStrings[i], ParsedActions))
+            ExecuteActions(AskCrossedObjectNames[i], ParsedActions, true);
+      }
+      for(i = 0; i < ArraySize(BidActionStrings); i++)
+      {
+         if(ParseActions(BidActionStrings[i], ParsedActions))
+            ExecuteActions(BidCrossedObjectNames[i], ParsedActions, false);
+      }
+   
+   //should parse all actions from all objects
+   //Get all used order IDs from active orders and from all relevant objects
+      UsedOrderIDsInfo = UsedOrderIDs();
+
+      if(!GetActionStrings(RelevantObjectNames, AllActionStrings))
+         return(7);
+      for(i = 0; i < ArraySize(AllActionStrings); i++)
+      {
+         if(ParseActions(AllActionStrings[i], ParsedActions))
+            UsedOrderIDsInfo = StringConcatenate(UsedOrderIDsInfo, "\n", ParseOrderIdFromActionString(ParsedActions));
+      }
+
+      Comment(UsedOrderIDsInfo);
+   
+      LASTASK = Ask;
+      LASTBID = Bid;
+
+/*
+      Sleep(5);            // Short pause
    }
-   for(i = 0; i < ArraySize(BidActionStrings); i++)
-   {
-      if(ParseActions(BidActionStrings[i], ParsedActions))
-         ExecuteActions(BidCrossedObjectNames[i], ParsedActions, false);
-   }
-   
-//should parse all actions from all objects
-//Get all used order IDs from active orders and from all relevant objects
-   UsedOrderIDsInfo = UsedOrderIDs();
-
-   if(!GetActionStrings(RelevantObjectNames, AllActionStrings))
-      return(7);
-   for(i = 0; i < ArraySize(AllActionStrings); i++)
-   {
-      if(ParseActions(AllActionStrings[i], ParsedActions))
-         UsedOrderIDsInfo = StringConcatenate(UsedOrderIDsInfo, "\n", ParseOrderIdFromActionString(ParsedActions));
-   }
-
-   Comment(UsedOrderIDsInfo);
-   
-   LASTASK = Ask;
-   LASTBID = Bid;
+*/
 
    return(0);
 }
@@ -259,7 +271,6 @@ bool GetRelevantObjects(int OBJECT_TYPES[], string& RelevantObjectNames[])
    {
       for(int j = 0; j < ArraySize(OBJECT_TYPES); j++)
       {
-         
          if(ObjectType(ObjectName(i)) == OBJECT_TYPES[j])
          {
 //            Print("i: ", i, " j: ", j, " ObjectName: ", ObjectName(i), " OBJECT_TYPES[j]: ", OBJECT_TYPES[j]);
@@ -611,7 +622,7 @@ bool ExecuteActions(string ObjName, string ParsedAction[], bool AskBid)
          {
             SendPredefinedRecipientMail(StringConcatenate("Error closing position: ", OrderID), StringConcatenate("Error closing position: ", OrderID, " - number of closed position returned: ", NumberOfClosedPosition));
          }
-         else
+         else if(NumberOfPosition > 0)
          {
             result = true;
             ObjectDeactivate(ObjName);
@@ -634,7 +645,7 @@ bool ExecuteActions(string ObjName, string ParsedAction[], bool AskBid)
          {
             SendPredefinedRecipientMail(StringConcatenate("Error closing position: ", OrderID), StringConcatenate("Error closing position: ", OrderID, " - number of closed position returned: ", NumberOfClosedPosition));
          }
-         else
+         else if(NumberOfPosition > 0)
          {
             result = true;
             ObjectDeactivate(ObjName);
@@ -768,19 +779,6 @@ string ParseActionText(string ActionItem)
 //   Print("ParseActionText: ", ActionItem, ", |", result, "|");
    return(result);
 }
-
-//------------------------------------------------------------------
-// TradeAllowed function return true if trading is possible         
-//------------------------------------------------------------------
-bool TradeAllowed(int MAXORDERS)
-{
-//Trade only once on each bar
-   if(!IsTradeAllowed()) 
-      return(false);
-   if(OrdersTotal() >= MAXORDERS)
-      return(false);
-   return(true);
-}
 //------------------------------------------------------------------
 int getOrdersTotalByMagicnumber(int MAGICNUMBER)
 {
@@ -796,49 +794,6 @@ int getOrdersTotalByMagicnumber(int MAGICNUMBER)
 //------------------------------------------------------------------
 //------------------------------------------------------------------
 //------------------------------------------------------------------
-// MM Modul                                                         
-//------------------------------------------------------------------
-//------------------------------------------------------------------
-//------------------------------------------------------------------
-double GetLots(int MM_STRATEGY, int AMOUNT)
-{
-   double lot, result;
-
-   switch(MM_STRATEGY)
-   {
-      case _MM_FIX_LOT:
-      {
-         lot = AMOUNT;
-
-         break;
-      }
-      case _MM_FIX_PERC:
-      {
-         lot = NormalizeDouble(AccountFreeMargin() * AMOUNT / 1000.0, 1);
-
-         break;
-      }
-      case _MM_FIX_PERC_AVG_LAST_PROFIT:
-      {
-         lot = NormalizeDouble(AccountFreeMargin() * AMOUNT / 1000.0, 1);
-
-         break;
-      }
-   }
-
-//   if(lot > AccountFreeMargin() / 1500.0)
-//      lot = MathFloor(10 * AccountFreeMargin() / 1500.0)/ 10;
-
-   if(lot < _MINLOTS)
-      lot = _MINLOTS;
-   else if(lot > _MAXLOTS)
-      lot = _MAXLOTS;
-      
-   return(lot);
-}
-//------------------------------------------------------------------
-//------------------------------------------------------------------
-//------------------------------------------------------------------
 // Order management modul
 //------------------------------------------------------------------
 //------------------------------------------------------------------
@@ -849,6 +804,9 @@ double GetLots(int MM_STRATEGY, int AMOUNT)
 //------------------------------------------------------------------------------------
 int OpenPosition(bool SHORTLONG, double LOTS, double STOPLOSS, double TAKEPROFIT, int SLIPPAGE, int MAGICNUMBER)
 {
+   while(!IsTradeAllowed() || IsTradeContextBusy())
+      Sleep(100);
+   
    if(SHORTLONG)
    {
       if(STOPLOSS > 0)
@@ -887,6 +845,9 @@ int OpenPosition(bool SHORTLONG, double LOTS, double STOPLOSS, double TAKEPROFIT
 //------------------------------------------------------------------------------------
 void OpenPendingPosition(bool SHORTLONG, double LOTS, double OPENPRICE, double STOPLOSS, double TAKEPROFIT, int SLIPPAGE, int MAGICNUMBER, datetime EXPIRATION)
 {
+   while(!IsTradeAllowed() || IsTradeContextBusy())
+      Sleep(100);
+
    if(SHORTLONG)
    {
       OrderSend(Symbol(), OP_SELLSTOP, LOTS, OPENPRICE, SLIPPAGE, STOPLOSS, TAKEPROFIT, NULL, MAGICNUMBER, EXPIRATION, Red);
@@ -920,6 +881,9 @@ void ModifyAllPositions(int MAGICNUMBER, double STOPLOSS, double TAKEPROFIT)
 //------------------------------------------------------------------------------------
 void ModifyPosition(int TICKETNUMBER, double STOPLOSS, double TAKEPROFIT)
 {
+   while(!IsTradeAllowed() || IsTradeContextBusy())
+      Sleep(100);
+
    STOPLOSS = NormalizeDouble(STOPLOSS, 4);
    TAKEPROFIT = NormalizeDouble(TAKEPROFIT, 4);
    
@@ -1053,6 +1017,9 @@ int ClosePositions(int OrderTickets2Close[])
 //------------------------------------------------------------------------------------
 int ClosePosition(int OrderTicket2Close)
 {
+   while(!IsTradeAllowed() || IsTradeContextBusy())
+      Sleep(100);
+
    int result = 0;
    
    if(OrderSelect(OrderTicket2Close, SELECT_BY_TICKET))
@@ -1149,11 +1116,14 @@ string MakeScreenShot(string Postfix = "")
 void ErrorCheckup()
 {
    int error = GetLastError();
-   if(_SENT_MAIL_NOTIFI_ON_ERROR == 1)
+   if(error != 0)
    {
-      SendPredefinedRecipientMail(StringConcatenate("Error number ", error, " occured!"), StringConcatenate(" Error number ", error, " occured! \nError description: ", ErrorDescription(error)));
+      if(_SENT_MAIL_NOTIFI_ON_ERROR == 1)
+      {
+         SendPredefinedRecipientMail(StringConcatenate("Error number ", error, " occured!"), StringConcatenate(" Error number ", error, " occured! \nError description: ", ErrorDescription(error)));
+      }
+      Print(StringConcatenate("Error number ", error, " occured!"), StringConcatenate(" Error number ", error, " occured! \nError description: ", ErrorDescription(error)));
    }
-   Print(StringConcatenate("Error number ", error, " occured!"), StringConcatenate(" Error number ", error, " occured! \nError description: ", ErrorDescription(error)));
 }
 
 //------------------------------------------------------------------
@@ -1197,3 +1167,25 @@ int ParseOrderIdFromActionString(string ParsedAction[])
    return(OrderID);
 //   UsedOrderIDsInfo = StringConcatenate(UsedOrderIDsInfo, "\n", OrderID);
 }
+//------------------------------------------------------------------
+int GetClosedOrdersInfoIntoCSV()
+{
+   string CSVFileName = "AccountInfo.csv";
+   
+   int i,handle,hstTotal=HistoryTotal(),m=Minute();
+   
+   handle=FileOpen(CSVFileName,FILE_WRITE|FILE_CSV,",");
+   if(handle<0) return(0);
+   FileWrite(handle,"#,Open Time,Type,Lots,Symbol,Price,Stop/Loss,Take Profit,Close Time,Close Price,Profit,Comment");
+   for(i=0;i<hstTotal;i++)
+   {
+      if(OrderSelect(i,SELECT_BY_POS,MODE_HISTORY)==true)
+      {
+         FileWrite(handle,OrderTicket(),TimeToStr(OrderOpenTime(),TIME_DATE|TIME_MINUTES),OrderType(),OrderLots(),OrderSymbol(),OrderOpenPrice(),OrderStopLoss(),OrderTakeProfit(),TimeToStr(OrderCloseTime(),TIME_DATE|TIME_MINUTES),OrderClosePrice(),OrderProfit(),OrderComment());
+      }
+   }
+   FileClose(handle);
+   
+   return(0);
+}
+
