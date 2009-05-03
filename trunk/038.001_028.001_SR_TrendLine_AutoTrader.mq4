@@ -6,7 +6,7 @@
 #include <stdlib.mqh>
 #include <StringLib.mqh>
 
-bool        _DEBUG =                   true;
+extern bool        _DEBUG              = true;
 
 //------------------------------------------------------------------
 //------------------------------------------------------------------
@@ -15,11 +15,23 @@ bool        _DEBUG =                   true;
 //------------------------------------------------------------------
 //------------------------------------------------------------------
 //------------------------------------------------------------------
+extern int   _AUTO_SCREENSHOT_PERIOD   = PERIOD_H1;
+
 #define     _FILES_DIRECTORY           "C:\\Program Files\\XTB-Trader 4\\experts\\files\\"
 #define     _SCREENSHOT_X_SIZE         1600
 #define     _SCREENSHOT_Y_SIZE         1200
-#define     _AUTO_SCREENSHOT_PERIOD    PERIOD_H1
+datetime    _LAST_AUTO_SCREENSHOT_TIME;
+//------------------------------------------------------------------
+//------------------------------------------------------------------
+//------------------------------------------------------------------
+// account/orders info functionality
+//------------------------------------------------------------------
+//------------------------------------------------------------------
+//------------------------------------------------------------------
+extern int   _AUTO_ACCOUNT_INFO_PERIOD = PERIOD_H1;
 
+#define     _FILES_DIRECTORY           "C:\\Program Files\\XTB-Trader 4\\experts\\files\\"
+datetime    _LAST_AUTO_ACCOUNT_TIME;
 //------------------------------------------------------------------
 //------------------------------------------------------------------
 //------------------------------------------------------------------
@@ -27,9 +39,8 @@ bool        _DEBUG =                   true;
 //------------------------------------------------------------------
 //------------------------------------------------------------------
 //------------------------------------------------------------------
-int   _MIN_STOPLOSS_DISTANCE        = 10;
-int   _MIN_TAKEPROFIT_DISTANCE      = 10;
-
+int   _MIN_STOPLOSS_DISTANCE;
+int   _MIN_TAKEPROFIT_DISTANCE;
 //------------------------------------------------------------------
 //------------------------------------------------------------------
 //------------------------------------------------------------------
@@ -37,6 +48,8 @@ int   _MIN_TAKEPROFIT_DISTANCE      = 10;
 //------------------------------------------------------------------
 //------------------------------------------------------------------
 //------------------------------------------------------------------
+extern double _DEFAULT_LOTS                     = 0.1;
+
 #define     _MM_FIX_LOT                         1
 #define     _MM_FIX_PERC                        2
 #define     _MM_FIX_PERC_AVG_LAST_PROFIT        3
@@ -44,7 +57,6 @@ int   _MIN_TAKEPROFIT_DISTANCE      = 10;
 
 #define     _MINLOTS                            0.1
 #define     _MAXLOTS                            5
-#define     _DEFAULT_LOTS                       0.1
 #define     _DEFAULT_SLIPPAGE                   3
 //------------------------------------------------------------------
 //------------------------------------------------------------------
@@ -53,9 +65,10 @@ int   _MIN_TAKEPROFIT_DISTANCE      = 10;
 //------------------------------------------------------------------
 //------------------------------------------------------------------
 //------------------------------------------------------------------
+extern bool _SENT_MAIL_NOTIFI_ON_ERROR       = false;
+extern string _MAIL_NOTIFICATION_TO          = "radorybar@gmail.com";
+
 #define     _MAIL_NOTIFICATION_FROM          "turtle.vpscustomer.com"
-#define     _MAIL_NOTIFICATION_TO            "radorybar@gmail.com"
-#define     _SENT_MAIL_NOTIFI_ON_ERROR       0
 //------------------------------------------------------------------
 //------------------------------------------------------------------
 //------------------------------------------------------------------
@@ -65,20 +78,6 @@ int   _MIN_TAKEPROFIT_DISTANCE      = 10;
 //------------------------------------------------------------------
 
 //define all important action language keywords
-/*
-#define BUY_STOP				     "BUY_STOP"
-#define BUY_LIMIT               "BUY_LIMIT"
-#define SELL_STOP               "SELL_STOP"
-#define SELL_LIMIT              "SELL_LIMIT"
-#define SEND_MAIL               "SEND_MAIL"
-#define SEND_SCREENSHOT         "SEND_SCREENSHOT"
-#define ORDER_CLOSE             "ORDER_CLOSE"
-#define OBJECT_ACTIVATE         "OBJECT_ACTIVATE"
-#define OBJECT_DEACTIVATE       "OBJECT_DEACTIVATE"
-#define ORDER_MOVE_SL           "ORDER_MOVE_SL"
-#define ORDER_MOVE_TP           "ORDER_MOVE_TP"
-#define ORDER_ID                "ORDER_ID"
-*/
 
 #define BUY_STOP				     "BUYSTOP"
 #define BUY_LIMIT               "BUYLIMIT"
@@ -164,8 +163,10 @@ int init()
    LASTASK = Ask;
    LASTBID = Bid;
 
+   _LAST_AUTO_SCREENSHOT_TIME = iTime(Symbol(), _AUTO_SCREENSHOT_PERIOD, 0);
    return(0);
 }
+
 int deinit()
 {
    return(0);
@@ -189,8 +190,11 @@ int start()
       string AllActionStrings[];
       string ParsedActions[];
    
-      if(iVolume(Symbol(), _AUTO_SCREENSHOT_PERIOD, 0) == 1)
+      if(iTime(Symbol(), _AUTO_SCREENSHOT_PERIOD, 0) - _AUTO_SCREENSHOT_PERIOD*60 >= _LAST_AUTO_SCREENSHOT_TIME)
+      {
+         _LAST_AUTO_SCREENSHOT_TIME = iTime(Symbol(), _AUTO_SCREENSHOT_PERIOD, 0);
          MakeScreenShot();
+      }
    
       if(LASTASK == Ask && LASTBID == Bid)
          return(0);
@@ -328,6 +332,8 @@ bool GetAskCrossedObjects(string RelevantObjectNames[], string& CrossedObjectNam
 
       if(PriceCrossedValue(RelevantObjectNames[i], true))
       {
+         if(_DEBUG)
+            Print("GetAskCrossedObjects - Object Name: ", RelevantObjectNames[i], " - Object Value: ", ObjectGetValueByShift(RelevantObjectNames[i], 0));
          ArrayResize(CrossedObjectNames, ArraySize(CrossedObjectNames) + 1);
          CrossedObjectNames[ArraySize(CrossedObjectNames) - 1] = RelevantObjectNames[i];
       }
@@ -345,6 +351,8 @@ bool GetBidCrossedObjects(string RelevantObjectNames[], string& CrossedObjectNam
    {
       if(PriceCrossedValue(RelevantObjectNames[i], false))
       {
+         if(_DEBUG)
+            Print("GetBidCrossedObjects - Object Name: ", RelevantObjectNames[i], " - Object Value: ", ObjectGetValueByShift(RelevantObjectNames[i], 0));
          ArrayResize(CrossedObjectNames, ArraySize(CrossedObjectNames) + 1);
          CrossedObjectNames[ArraySize(CrossedObjectNames) - 1] = RelevantObjectNames[i];
       }
@@ -493,13 +501,11 @@ bool ExecuteActions(string ObjName, string ParsedAction[], bool AskBid)
 
    UsedOrderIDsInfo = StringConcatenate(UsedOrderIDsInfo, "\n", OrderID);
    
-/*   
    if(_DEBUG)
    {
-      Print("ParsedAction");
+      Print("ExecuteActions - Action: ");
       DebugStringArray(ParsedAction);
    }
-*/
 
 // BUY
 //if Ask price crossed
