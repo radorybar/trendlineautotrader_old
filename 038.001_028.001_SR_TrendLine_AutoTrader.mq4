@@ -1,10 +1,21 @@
 #property copyright "slacktrader"
 #property link      "slacktrader"
 
+#import "shell32.dll"
+int ShellExecuteA(int hWnd,int lpVerb,string lpFile,int lpParameters,int lpDirectory,int nCmdShow);
+#import
+
+#import "kernel32.dll"
+int  FindFirstFileA(string path, int & answer[]);
+bool FindNextFileA(int handle, int & answer[]);
+bool FindClose(int handle);
+#import
+
 #include <gMail.mqh>
 #include <stderror.mqh>
 #include <stdlib.mqh>
 #include <StringLib.mqh>
+#include <SummaryReportInPoints.mqh>
 
 extern bool        _DEBUG              = true;
 
@@ -15,7 +26,7 @@ extern bool        _DEBUG              = true;
 //------------------------------------------------------------------
 //------------------------------------------------------------------
 //------------------------------------------------------------------
-extern int   _AUTO_SCREENSHOT_PERIOD   = PERIOD_H1;
+extern int   _AUTO_SCREENSHOT_PERIOD   = PERIOD_M1;
 
 #define     _FILES_DIRECTORY           "C:\\Program Files\\XTB-Trader 4\\experts\\files\\"
 #define     _SCREENSHOT_X_SIZE         1600
@@ -28,7 +39,7 @@ datetime    _LAST_AUTO_SCREENSHOT_TIME;
 //------------------------------------------------------------------
 //------------------------------------------------------------------
 //------------------------------------------------------------------
-extern int   _AUTO_ACCOUNT_INFO_PERIOD = PERIOD_H1;
+extern int   _AUTO_ACCOUNT_PERIOD = PERIOD_M1;
 
 #define     _FILES_DIRECTORY           "C:\\Program Files\\XTB-Trader 4\\experts\\files\\"
 datetime    _LAST_AUTO_ACCOUNT_TIME;
@@ -164,6 +175,7 @@ int init()
    LASTBID = Bid;
 
    _LAST_AUTO_SCREENSHOT_TIME = iTime(Symbol(), _AUTO_SCREENSHOT_PERIOD, 0);
+   _LAST_AUTO_ACCOUNT_TIME = iTime(Symbol(), _AUTO_ACCOUNT_PERIOD, 0);
    return(0);
 }
 
@@ -189,13 +201,14 @@ int start()
       string BidActionStrings[];
       string AllActionStrings[];
       string ParsedActions[];
-   
+
       if(iTime(Symbol(), _AUTO_SCREENSHOT_PERIOD, 0) - _AUTO_SCREENSHOT_PERIOD*60 >= _LAST_AUTO_SCREENSHOT_TIME)
       {
          _LAST_AUTO_SCREENSHOT_TIME = iTime(Symbol(), _AUTO_SCREENSHOT_PERIOD, 0);
+         DeleteAllSreenshotFiles();
          MakeScreenShot();
       }
-   
+      
       if(LASTASK == Ask && LASTBID == Bid)
          return(0);
    
@@ -247,6 +260,9 @@ int start()
             UsedOrderIDsInfo = StringConcatenate(UsedOrderIDsInfo, "\n", ParseOrderIdFromActionString(ParsedActions));
       }
 
+// dump account info into text files
+      SummaryReportInPoints();
+      
       Comment(UsedOrderIDsInfo);
    
       LASTASK = Ask;
@@ -1105,7 +1121,8 @@ string MakeScreenShot(string Postfix = "")
    if(StringLen(Postfix) > 0)
       Postfix = StringConcatenate("_", Postfix);
    
-   FileName = StringConcatenate(TimeToStr(TimeCurrent(), TIME_DATE), "_", hours, "-", minutes, "-", seconds, "_", Symbol(), Postfix, ".gif");
+//   FileName = StringConcatenate(TimeToStr(TimeCurrent(), TIME_DATE), "_", hours, "-", minutes, "-", seconds, "_", Symbol(), Postfix, ".gif");
+   FileName = StringConcatenate(Symbol(), Postfix, ".gif");
    
    if(WindowScreenShot(FileName, X_SIZE, Y_SIZE))
    {
@@ -1174,24 +1191,44 @@ int ParseOrderIdFromActionString(string ParsedAction[])
 //   UsedOrderIDsInfo = StringConcatenate(UsedOrderIDsInfo, "\n", OrderID);
 }
 //------------------------------------------------------------------
-int GetClosedOrdersInfoIntoCSV()
+bool DeleteAllSreenshotFiles()
 {
-   string CSVFileName = "AccountInfo.csv";
+   int win32_DATA[255];
    
-   int i,handle,hstTotal=HistoryTotal(),m=Minute();
-   
-   handle=FileOpen(CSVFileName,FILE_WRITE|FILE_CSV,",");
-   if(handle<0) return(0);
-   FileWrite(handle,"#,Open Time,Type,Lots,Symbol,Price,Stop/Loss,Take Profit,Close Time,Close Price,Profit,Comment");
-   for(i=0;i<hstTotal;i++)
+   int handle = FindFirstFileA(TerminalPath() + "\experts\files\*" + Symbol() + ".gif",win32_DATA);
+//   Print(TerminalPath() + "\experts\files\*" + Symbol() + ".gif");
+//   Print(bufferToString(win32_DATA));
+   FileDelete(bufferToString(win32_DATA));
+   ArrayInitialize(win32_DATA,0);
+ 
+   while (FindNextFileA(handle,win32_DATA))
    {
-      if(OrderSelect(i,SELECT_BY_POS,MODE_HISTORY)==true)
-      {
-         FileWrite(handle,OrderTicket(),TimeToStr(OrderOpenTime(),TIME_DATE|TIME_MINUTES),OrderType(),OrderLots(),OrderSymbol(),OrderOpenPrice(),OrderStopLoss(),OrderTakeProfit(),TimeToStr(OrderCloseTime(),TIME_DATE|TIME_MINUTES),OrderClosePrice(),OrderProfit(),OrderComment());
-      }
+//      Print(bufferToString(win32_DATA));
+      FileDelete(bufferToString(win32_DATA));
+      ArrayInitialize(win32_DATA,0);
    }
-   FileClose(handle);
-   
-   return(0);
-}
+ 
+   if (handle>0) FindClose(handle);
 
+   return(true);
+}
+//+------------------------------------------------------------------+
+//|  read text from buffer                                           |
+//+------------------------------------------------------------------+ 
+string bufferToString(int buffer[])
+   {
+   string text="";
+   
+   int pos = 10;
+   for (int i=0; i<64; i++)
+      {
+      pos++;
+      int curr = buffer[pos];
+      text = text + CharToStr(curr & 0x000000FF)
+         +CharToStr(curr >> 8 & 0x000000FF)
+         +CharToStr(curr >> 16 & 0x000000FF)
+         +CharToStr(curr >> 24 & 0x000000FF);
+      }
+   return (text);
+   }  
+//+------------------------------------------------------------------+
