@@ -540,7 +540,8 @@ bool ExecuteActions(string ObjName, string ParsedAction[], bool AskBid)
                ObjectDeactivate(ObjName);
                
                OrderSelect(OrderTicketNumber, SELECT_BY_TICKET);
-               screenshotname = MakeScreenShot(StringConcatenate("BUYSTOP_", OrderLots(), "_", DoubleToStr(OrderTicketNumber, 0)));
+//               screenshotname = MakeScreenShot(StringConcatenate("BUYSTOP_", OrderLots(), "_", DoubleToStr(OrderTicketNumber, 0)));
+               screenshotname = MakeScreenShot();
 
                if(ContainsAction(ParsedAction, SEND_MAIL, parsedtext))
                {
@@ -564,7 +565,8 @@ bool ExecuteActions(string ObjName, string ParsedAction[], bool AskBid)
                ObjectDeactivate(ObjName);
 
                OrderSelect(OrderTicketNumber, SELECT_BY_TICKET);
-               screenshotname = MakeScreenShot(StringConcatenate("BUYLIMIT_", OrderLots(), "_", DoubleToStr(OrderTicketNumber, 0)));
+//               screenshotname = MakeScreenShot(StringConcatenate("BUYLIMIT_", OrderLots(), "_", DoubleToStr(OrderTicketNumber, 0)));
+               screenshotname = MakeScreenShot();
                
                if(ContainsAction(ParsedAction, SEND_MAIL, parsedtext))
                   SendPredefinedRecipientMail(StringConcatenate("Order ", OrderTicketNumber, " - BUY ", Symbol(), " at : ", Ask), StringConcatenate(ParsedAction[0], ": ", parsedtext));
@@ -590,7 +592,8 @@ bool ExecuteActions(string ObjName, string ParsedAction[], bool AskBid)
                ObjectDeactivate(ObjName);
                
                OrderSelect(OrderTicketNumber, SELECT_BY_TICKET);
-               screenshotname = MakeScreenShot(StringConcatenate("SELLSTOP_", OrderLots(), "_", DoubleToStr(OrderTicketNumber, 0)));
+//               screenshotname = MakeScreenShot(StringConcatenate("SELLSTOP_", OrderLots(), "_", DoubleToStr(OrderTicketNumber, 0)));
+               screenshotname = MakeScreenShot();
                
                if(ContainsAction(ParsedAction, SEND_MAIL, parsedtext))
                   SendPredefinedRecipientMail(StringConcatenate("Order ", OrderTicketNumber, " - SELL ", Symbol(), " at : ", Bid), StringConcatenate(ParsedAction[0], ": ", parsedtext));
@@ -611,7 +614,8 @@ bool ExecuteActions(string ObjName, string ParsedAction[], bool AskBid)
                ObjectDeactivate(ObjName);
                
                OrderSelect(OrderTicketNumber, SELECT_BY_TICKET);
-               screenshotname = MakeScreenShot(StringConcatenate("SELLLIMIT_", OrderLots(), "_", DoubleToStr(OrderTicketNumber, 0)));
+//               screenshotname = MakeScreenShot(StringConcatenate("SELLLIMIT_", OrderLots(), "_", DoubleToStr(OrderTicketNumber, 0)));
+               screenshotname = MakeScreenShot();
                
                if(ContainsAction(ParsedAction, SEND_MAIL, parsedtext))
                   SendPredefinedRecipientMail(StringConcatenate("Order ", OrderTicketNumber, " - SELL ", Symbol(), " at : ", Bid), StringConcatenate(ParsedAction[0], ": ", parsedtext));
@@ -642,14 +646,23 @@ bool ExecuteActions(string ObjName, string ParsedAction[], bool AskBid)
          Print("AskBid: ", AskBid, " NumberOfPosition: ", NumberOfPosition, ", NumberOfClosedPosition: ", NumberOfClosedPosition);
          if(NumberOfClosedPosition != NumberOfPosition)
          {
-            SendPredefinedRecipientMail(StringConcatenate("Error closing position: ", OrderID), StringConcatenate("Error closing position: ", OrderID, " - number of closed position returned: ", NumberOfClosedPosition));
+            if(NumberOfPosition == 0)
+            {
+               SendPredefinedRecipientMail(StringConcatenate("Closing not-existing position: ", OrderID), StringConcatenate("Closing not-existing position: ", OrderID));
+               ObjectDeactivate(ObjName);
+            }
+            else
+            {
+               SendPredefinedRecipientMail(StringConcatenate("Error closing position: ", OrderID), StringConcatenate("Error closing position: ", OrderID, " - number of closed position returned: ", NumberOfClosedPosition));
+            }
          }
          else if(NumberOfPosition > 0)
          {
             result = true;
             ObjectDeactivate(ObjName);
             
-            screenshotname = MakeScreenShot(StringConcatenate("CLOSESELL_", DoubleToStr(OrderID, 0)));
+//            screenshotname = MakeScreenShot(StringConcatenate("CLOSESELL_", DoubleToStr(OrderID, 0)));
+            screenshotname = MakeScreenShot();
             
             if(ContainsAction(ParsedAction, SEND_MAIL, parsedtext))
                SendPredefinedRecipientMail(StringConcatenate("Order ", OrderID, " closed at: ", Ask), StringConcatenate(ParsedAction[0], ": ", parsedtext));
@@ -665,14 +678,23 @@ bool ExecuteActions(string ObjName, string ParsedAction[], bool AskBid)
          Print("AskBid: ", AskBid, " NumberOfPosition: ", NumberOfPosition, ", NumberOfClosedPosition: ", NumberOfClosedPosition);
          if(NumberOfClosedPosition != NumberOfPosition)
          {
-            SendPredefinedRecipientMail(StringConcatenate("Error closing position: ", OrderID), StringConcatenate("Error closing position: ", OrderID, " - number of closed position returned: ", NumberOfClosedPosition));
+            if(NumberOfPosition == 0)
+            {
+               SendPredefinedRecipientMail(StringConcatenate("Closing not-existing position: ", OrderID), StringConcatenate("Closing not-existing position: ", OrderID));
+               ObjectDeactivate(ObjName);
+            }
+            else
+            {
+               SendPredefinedRecipientMail(StringConcatenate("Error closing position: ", OrderID), StringConcatenate("Error closing position: ", OrderID, " - number of closed position returned: ", NumberOfClosedPosition));
+            }
          }
          else if(NumberOfPosition > 0)
          {
             result = true;
             ObjectDeactivate(ObjName);
             
-            screenshotname = MakeScreenShot(StringConcatenate("CLOSEBUY_", DoubleToStr(OrderID, 0)));
+//            screenshotname = MakeScreenShot(StringConcatenate("CLOSEBUY_", DoubleToStr(OrderID, 0)));
+            screenshotname = MakeScreenShot();
             
             if(ContainsAction(ParsedAction, SEND_MAIL, parsedtext))
                SendPredefinedRecipientMail(StringConcatenate("Order ", OrderID, " closed at: ", Bid), StringConcatenate(ParsedAction[0], ": ", parsedtext));
