@@ -649,7 +649,7 @@ bool ExecuteActions(string ObjName, string ParsedAction[], bool AskBid)
             if(NumberOfPosition == 0)
             {
                SendPredefinedRecipientMail(StringConcatenate("Closing not-existing position: ", OrderID), StringConcatenate("Closing not-existing position: ", OrderID));
-               ObjectDeactivate(ObjName);
+//               ObjectDeactivate(ObjName);
             }
             else
             {
@@ -681,7 +681,7 @@ bool ExecuteActions(string ObjName, string ParsedAction[], bool AskBid)
             if(NumberOfPosition == 0)
             {
                SendPredefinedRecipientMail(StringConcatenate("Closing not-existing position: ", OrderID), StringConcatenate("Closing not-existing position: ", OrderID));
-               ObjectDeactivate(ObjName);
+//               ObjectDeactivate(ObjName);
             }
             else
             {
