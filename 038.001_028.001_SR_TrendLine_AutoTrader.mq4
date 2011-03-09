@@ -99,8 +99,10 @@ extern string _MAIL_NOTIFICATION_TO          = "radorybar@gmail.com";
 #define ORDER_CLOSE             "ORDRCLOSE"
 #define OBJECT_ACTIVATE         "OBJACT"
 #define OBJECT_DEACTIVATE       "OBJDEACT"
-#define ORDER_MOVE_SL           "ORDRSL"
-#define ORDER_MOVE_TP           "ORDRTP"
+#define ORDER_SET_SL_POINTS     "SLPOINTS"
+#define ORDER_SET_TP_POINTS     "TPPOINTS"
+#define ORDER_SET_SL_PRICE      "SLPRICE"
+#define ORDER_SET_TP_PRICE      "TPPRICE"
 #define ORDER_ID                "ORDRID"
 
 //All object that are relevant for autotarder
@@ -141,11 +143,17 @@ string   _ACTION_LANGUAGE_COMMANDS[] =
    OBJECT_DEACTIVATE,
 //usage: OBJECT_DEACTIVATE object id to deactivate[*SEND_MAIL [text of mail][*SEND_SCREENSHOT [text for screenshot]]]
 
-   ORDER_MOVE_SL,
-//usage: ORDER_MOVE_SL value of new SL*ORDER_ID order id for new SL[*SEND_MAIL [text of mail][*SEND_SCREENSHOT [text for screenshot]]]
+   ORDER_SET_SL_POINTS,
+//usage: ORDER_SET_SL_POINTS value of new SL*ORDER_ID order id for new SL[*SEND_MAIL [text of mail][*SEND_SCREENSHOT [text for screenshot]]]
 
-   ORDER_MOVE_TP
-//usage: ORDER_MOVE_TP value of new TP*ORDER_ID order id for new TP[*SEND_MAIL [text of mail][*SEND_SCREENSHOT [text for screenshot]]]
+   ORDER_SET_TP_POINTS,
+//usage: ORDER_SET_TP_POINTS value of new TP*ORDER_ID order id for new TP[*SEND_MAIL [text of mail][*SEND_SCREENSHOT [text for screenshot]]]
+
+   ORDER_SET_SL_PRICE,
+//usage: ORDER_SET_SL_PRICE value of new SL*ORDER_ID order id for new SL[*SEND_MAIL [text of mail][*SEND_SCREENSHOT [text for screenshot]]]
+
+   ORDER_SET_TP_PRICE
+//usage: ORDER_SET_TP_PRICE value of new TP*ORDER_ID order id for new TP[*SEND_MAIL [text of mail][*SEND_SCREENSHOT [text for screenshot]]]
 };
 
 //All other - non actions - possible for use in object description
@@ -205,8 +213,8 @@ int start()
       if(iTime(Symbol(), _AUTO_SCREENSHOT_PERIOD, 0) - _AUTO_SCREENSHOT_PERIOD*60 >= _LAST_AUTO_SCREENSHOT_TIME)
       {
          _LAST_AUTO_SCREENSHOT_TIME = iTime(Symbol(), _AUTO_SCREENSHOT_PERIOD, 0);
-         DeleteAllSreenshotFiles();
-         MakeScreenShot();
+         DeleteAllSreenshotFiles(StringConcatenate("", Period()));
+         MakeScreenShot(StringConcatenate("", Period()));
       }
       
       if(LASTASK == Ask && LASTBID == Bid)
@@ -310,8 +318,10 @@ bool FilterActiveObjects(string& ActiveObjectNames[])
    bool result = true;
    string AllObjectNames[];
    
+   if(ArraySize(ActiveObjectNames) == 0)
+      return (result);
+   ArrayResize(AllObjectNames, ArraySize(ActiveObjectNames));
    ArrayCopy(AllObjectNames, ActiveObjectNames);
-   
    ArrayResize(ActiveObjectNames, 0);
    
    for(int j = 0; j < ArraySize(AllObjectNames); j++)
@@ -486,10 +496,11 @@ bool ParseActions(string ActionString, string& ParsedAction[])
 
 /*
    if(_DEBUG)
-   {
-      Print("ParsedAction");
-      DebugStringArray(ParsedAction);
-   }
+      if(ArraySize(ParsedAction) > 0)
+      {
+         Print("ParsedAction");
+         DebugStringArray(ParsedAction);
+      }
 */
 
    return(result);
@@ -501,6 +512,7 @@ bool ExecuteActions(string ObjName, string ParsedAction[], bool AskBid)
    int i = 0;
    int OrderID = 0, NumberOfPosition = 0, NumberOfClosedPosition = 0;
    string parsedtext, screenshotname;
+   double SL, TP;
    
 //determine ORDER_ID of processed action, if there is any defined
 //if there is Order ID deined in action string - it has to be an integer value otherwise cancel action and return error
@@ -531,7 +543,20 @@ bool ExecuteActions(string ObjName, string ParsedAction[], bool AskBid)
       if(Ask > LASTASK)
          if(stringContainsIgnoreCase(ParsedAction[0], BUY_STOP))
          {
-            OrderTicketNumber = OpenPosition(false, _DEFAULT_LOTS, 0, 0, _DEFAULT_SLIPPAGE, OrderID);
+//Set SL if defined as action
+            SL = 0;
+            if(ContainsAction(ParsedAction, ORDER_SET_SL_POINTS, parsedtext))
+               SL = Bid - StrToInteger(parsedtext)*Point;
+            if(ContainsAction(ParsedAction, ORDER_SET_SL_PRICE, parsedtext))
+               SL = StrToDouble(parsedtext);
+//Set TP if defined as action
+            TP = 0;
+            if(ContainsAction(ParsedAction, ORDER_SET_TP_POINTS, parsedtext))
+               TP = Bid + StrToInteger(parsedtext)*Point;
+            if(ContainsAction(ParsedAction, ORDER_SET_TP_PRICE, parsedtext))
+               TP = StrToDouble(parsedtext);
+               
+            OrderTicketNumber = OpenPosition(false, _DEFAULT_LOTS, SL, TP, _DEFAULT_SLIPPAGE, OrderID);
             if(OrderTicketNumber < 0)
                ErrorCheckup();
             else
@@ -551,12 +576,27 @@ bool ExecuteActions(string ObjName, string ParsedAction[], bool AskBid)
                if(ContainsAction(ParsedAction, SEND_SCREENSHOT, parsedtext))
                   SendPredefinedRecipientMail(StringConcatenate("Order ", OrderTicketNumber, " - BUY ", Symbol(), " at : ", Ask), StringConcatenate(ParsedAction[0], ": ", parsedtext), StringConcatenate(_FILES_DIRECTORY, screenshotname), screenshotname);
             }
+            
+            return(true);
          }
 
       if(Ask < LASTASK)
          if(stringContainsIgnoreCase(ParsedAction[0], BUY_LIMIT))
          {
-            OrderTicketNumber = OpenPosition(false, _DEFAULT_LOTS, 0, 0, _DEFAULT_SLIPPAGE, OrderID);
+//Set SL if defined as action
+            SL = 0;
+            if(ContainsAction(ParsedAction, ORDER_SET_SL_POINTS, parsedtext))
+               SL = Bid - StrToInteger(parsedtext)*Point;
+            if(ContainsAction(ParsedAction, ORDER_SET_SL_PRICE, parsedtext))
+               SL = StrToDouble(parsedtext);
+//Set TP if defined as action
+            TP = 0;
+            if(ContainsAction(ParsedAction, ORDER_SET_TP_POINTS, parsedtext))
+               TP = Bid + StrToInteger(parsedtext)*Point;
+            if(ContainsAction(ParsedAction, ORDER_SET_TP_PRICE, parsedtext))
+               TP = StrToDouble(parsedtext);
+
+            OrderTicketNumber = OpenPosition(false, _DEFAULT_LOTS, SL, TP, _DEFAULT_SLIPPAGE, OrderID);
             if(OrderTicketNumber < 0)
                ErrorCheckup();
             else
@@ -573,6 +613,8 @@ bool ExecuteActions(string ObjName, string ParsedAction[], bool AskBid)
                if(ContainsAction(ParsedAction, SEND_SCREENSHOT, parsedtext))
                   SendPredefinedRecipientMail(StringConcatenate("Order ", OrderTicketNumber, " - BUY ", Symbol(), " at : ", Ask), StringConcatenate(ParsedAction[0], ": ", parsedtext), StringConcatenate(_FILES_DIRECTORY, screenshotname), screenshotname);
             }
+            
+            return(true);
          }
    }
 
@@ -583,7 +625,20 @@ bool ExecuteActions(string ObjName, string ParsedAction[], bool AskBid)
       if(Bid < LASTBID)
          if(stringContainsIgnoreCase(ParsedAction[0], SELL_STOP))
          {
-            OrderTicketNumber = OpenPosition(true, _DEFAULT_LOTS, 0, 0, _DEFAULT_SLIPPAGE, OrderID);
+//Set SL if defined as action
+            SL = 0;
+            if(ContainsAction(ParsedAction, ORDER_SET_SL_POINTS, parsedtext))
+               SL = Ask + StrToInteger(parsedtext)*Point;
+            if(ContainsAction(ParsedAction, ORDER_SET_SL_PRICE, parsedtext))
+               SL = StrToDouble(parsedtext);
+//Set TP if defined as action
+            TP = 0;
+            if(ContainsAction(ParsedAction, ORDER_SET_TP_POINTS, parsedtext))
+               TP = Ask - StrToInteger(parsedtext)*Point;
+            if(ContainsAction(ParsedAction, ORDER_SET_TP_PRICE, parsedtext))
+               TP = StrToDouble(parsedtext);
+
+            OrderTicketNumber = OpenPosition(true, _DEFAULT_LOTS, SL, TP, _DEFAULT_SLIPPAGE, OrderID);
             if(OrderTicketNumber < 0)
                ErrorCheckup();
             else
@@ -600,12 +655,27 @@ bool ExecuteActions(string ObjName, string ParsedAction[], bool AskBid)
                if(ContainsAction(ParsedAction, SEND_SCREENSHOT, parsedtext))
                   SendPredefinedRecipientMail(StringConcatenate("Order ", OrderTicketNumber, " - SELL ", Symbol(), " at : ", Bid), StringConcatenate(ParsedAction[0], ": ", parsedtext), StringConcatenate(_FILES_DIRECTORY, screenshotname), screenshotname);
             }
+            
+            return(true);
          }
 
       if(Bid > LASTBID)
          if(stringContainsIgnoreCase(ParsedAction[0], SELL_LIMIT))
          {
-            OrderTicketNumber = OpenPosition(true, _DEFAULT_LOTS, 0, 0, _DEFAULT_SLIPPAGE, OrderID);
+//Set SL if defined as action
+            SL = 0;
+            if(ContainsAction(ParsedAction, ORDER_SET_SL_POINTS, parsedtext))
+               SL = Ask + StrToInteger(parsedtext)*Point;
+            if(ContainsAction(ParsedAction, ORDER_SET_SL_PRICE, parsedtext))
+               SL = StrToDouble(parsedtext);
+//Set TP if defined as action
+            TP = 0;
+            if(ContainsAction(ParsedAction, ORDER_SET_TP_POINTS, parsedtext))
+               TP = Ask - StrToInteger(parsedtext)*Point;
+            if(ContainsAction(ParsedAction, ORDER_SET_TP_PRICE, parsedtext))
+               TP = StrToDouble(parsedtext);
+
+            OrderTicketNumber = OpenPosition(true, _DEFAULT_LOTS, SL, TP, _DEFAULT_SLIPPAGE, OrderID);
             if(OrderTicketNumber < 0)
                ErrorCheckup();
             else
@@ -622,6 +692,8 @@ bool ExecuteActions(string ObjName, string ParsedAction[], bool AskBid)
                if(ContainsAction(ParsedAction, SEND_SCREENSHOT, parsedtext))
                   SendPredefinedRecipientMail(StringConcatenate("Order ", OrderTicketNumber, " - SELL ", Symbol(), " at : ", Bid), StringConcatenate(ParsedAction[0], ": ", parsedtext), StringConcatenate(_FILES_DIRECTORY, screenshotname), screenshotname);
             }
+            
+            return(true);
          }
    }
    
@@ -714,12 +786,22 @@ bool ExecuteActions(string ObjName, string ParsedAction[], bool AskBid)
       
    }
 
-   if(stringContainsIgnoreCase(ParsedAction[0], ORDER_MOVE_SL))
+   if(stringContainsIgnoreCase(ParsedAction[0], ORDER_SET_SL_POINTS))
    {
       
    }
 
-   if(stringContainsIgnoreCase(ParsedAction[0], ORDER_MOVE_TP))
+   if(stringContainsIgnoreCase(ParsedAction[0], ORDER_SET_TP_POINTS))
+   {
+      
+   }
+
+   if(stringContainsIgnoreCase(ParsedAction[0], ORDER_SET_SL_PRICE))
+   {
+      
+   }
+
+   if(stringContainsIgnoreCase(ParsedAction[0], ORDER_SET_TP_PRICE))
    {
       
    }
@@ -854,13 +936,13 @@ int OpenPosition(bool SHORTLONG, double LOTS, double STOPLOSS, double TAKEPROFIT
    if(SHORTLONG)
    {
       if(STOPLOSS > 0)
-      if(Ask + _MIN_STOPLOSS_DISTANCE*Point < STOPLOSS)
+      if(Ask + _MIN_STOPLOSS_DISTANCE*Point > STOPLOSS)
       {
          Print("Bad OrderOpen() STOPLOSS defined. Price Bid was: ", Ask, " and STOPLOSS was: ", STOPLOSS, " . STOPLOSS set to minimal value: ", Bid + _MIN_STOPLOSS_DISTANCE*Point);
          STOPLOSS = Ask + _MIN_STOPLOSS_DISTANCE*Point;
       }
       if(TAKEPROFIT > 0)
-      if(Bid - _MIN_TAKEPROFIT_DISTANCE*Point > TAKEPROFIT)
+      if(Bid - _MIN_TAKEPROFIT_DISTANCE*Point < TAKEPROFIT)
       {
          Print("Bad OrderOpen() TAKEPROFIT defined. Price Bid was: ", Bid, " and TAKEPROFIT was: ", TAKEPROFIT, " . TAKEPROFIT set to minimal value: ", Bid - _MIN_TAKEPROFIT_DISTANCE*Point);
          TAKEPROFIT = Bid - _MIN_TAKEPROFIT_DISTANCE*Point;
@@ -1213,11 +1295,14 @@ int ParseOrderIdFromActionString(string ParsedAction[])
 //   UsedOrderIDsInfo = StringConcatenate(UsedOrderIDsInfo, "\n", OrderID);
 }
 //------------------------------------------------------------------
-bool DeleteAllSreenshotFiles()
+bool DeleteAllSreenshotFiles(string Postfix = "")
 {
    int win32_DATA[255];
    
-   int handle = FindFirstFileA(TerminalPath() + "\experts\files\*" + Symbol() + ".gif",win32_DATA);
+   if(StringLen(Postfix) > 0)
+      Postfix = StringConcatenate("_", Postfix);
+
+   int handle = FindFirstFileA(TerminalPath() + "\experts\files\"" + Symbol() + Postfix + ".gif",win32_DATA);
 //   Print(TerminalPath() + "\experts\files\*" + Symbol() + ".gif");
 //   Print(bufferToString(win32_DATA));
    FileDelete(bufferToString(win32_DATA));
