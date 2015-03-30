@@ -1,0 +1,27 @@
+# Introduction #
+
+Trendline trading is one of the oldest technique of trading. Simply you just trade zigzag movement of price inside of any pattern, or breakout of this pattern. For example triangle, rectangle, flag, uptrend, downtrend and so on.
+
+All these trading patterns requires you to watch a chart instantly, because such a reversal on a support line can just last for a few moments. At the end, no help from limit orders at all, because these patterns are mostly not equal with horizontal line, so with a time, best trade price vary. With this EA you can do let's say skew limit orders :-)
+
+This is why Trendline Autotrader was created. You just put a trendlines or horizontal lines on a chart with some commands and thats all. EA will do everything instead of you.
+
+This EA does not trade automatically according to a chosen strategy, but rather manages your orders automatically, according to a trendline and horizontal line objects. This allow you to trade according to a trendlines, but does not force you to sit down and watch a chart.
+
+And at the end human psychology is always ment as a big disadvantage in trading, because everybody incline in trading with a crowd. Thats for example trading of big down movements of price at support trendline. Not experienced trader will take such a movement in just most unprofitable price and mostly this is the lowest price, and from this point price only grows up and trader lost.
+
+This EA allows you to plan a trade far before euphory, which normaly you can see, when price reaches some important edge. You do not even need to watch this fight of bulls and bears and just go away and relax :-) . Afterall you just see if your decision was good or not. No emotion at all.
+
+# Details #
+
+It is planned, or is already implemented following functionality:
+
+  * open orders (limit, stop)
+  * close orders (target profit, stoploss)value
+  * stoploss trailing
+  * management of multiple orders by unique ID
+
+all these will be proceded by charting trendlines description. There is an easy language, which can help you to manage your orders.
+
+Here is an example of such a graphic trading:
+![http://turtle.vpscustomer.com/screenshots/2009.04.23_09-00-01_EURUSD.gif](http://turtle.vpscustomer.com/screenshots/2009.04.23_09-00-01_EURUSD.gif)
