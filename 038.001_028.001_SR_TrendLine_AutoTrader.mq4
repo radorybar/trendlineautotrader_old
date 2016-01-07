@@ -2,7 +2,8 @@
 #property link      "slacktrader"
 
 #import "shell32.dll"
-int ShellExecuteA(int hWnd,int lpVerb,string lpFile,int lpParameters,int lpDirectory,int nCmdShow);
+//int ShellExecuteA(int hWnd,int lpVerb,string lpFile,int lpParameters,int lpDirectory,int nCmdShow);
+int  ShellExecuteA(int hWnd, string lpOperation, string lpFile, string lpParameters, string lpDirectory, int nShowCmd);
 #import
 
 #import "kernel32.dll"
@@ -11,7 +12,7 @@ bool FindNextFileA(int handle, int & answer[]);
 bool FindClose(int handle);
 #import
 
-#include <gMail.mqh>
+//#include <gMail.mqh>
 #include <stderror.mqh>
 #include <stdlib.mqh>
 #include <StringLib.mqh>
@@ -28,7 +29,7 @@ extern bool        _DEBUG              = true;
 //------------------------------------------------------------------
 extern int   _AUTO_SCREENSHOT_PERIOD   = PERIOD_M1;
 
-#define     _FILES_DIRECTORY           "C:\\Program Files\\XTB-Trader 4\\experts\\files\\"
+#define     _FILES_DIRECTORY           "c:\\Program Files\\MetaTrader 4\\experts\files\\"
 #define     _SCREENSHOT_X_SIZE         1600
 #define     _SCREENSHOT_Y_SIZE         1200
 datetime    _LAST_AUTO_SCREENSHOT_TIME;
@@ -41,7 +42,6 @@ datetime    _LAST_AUTO_SCREENSHOT_TIME;
 //------------------------------------------------------------------
 extern int   _AUTO_ACCOUNT_PERIOD = PERIOD_M1;
 
-#define     _FILES_DIRECTORY           "C:\\Program Files\\XTB-Trader 4\\experts\\files\\"
 datetime    _LAST_AUTO_ACCOUNT_TIME;
 //------------------------------------------------------------------
 //------------------------------------------------------------------
@@ -79,7 +79,7 @@ extern double _DEFAULT_LOTS                     = 0.1;
 extern bool _SENT_MAIL_NOTIFI_ON_ERROR       = false;
 extern string _MAIL_NOTIFICATION_TO          = "radorybar@gmail.com";
 
-#define     _MAIL_NOTIFICATION_FROM          "turtle.vpscustomer.com"
+#define     _MAIL_NOTIFICATION_FROM          "slacktrader@aws.com"
 //------------------------------------------------------------------
 //------------------------------------------------------------------
 //------------------------------------------------------------------
@@ -94,7 +94,7 @@ extern string _MAIL_NOTIFICATION_TO          = "radorybar@gmail.com";
 #define BUY_LIMIT               "BUYLIMIT"
 #define SELL_STOP               "SELLSTOP"
 #define SELL_LIMIT              "SELLLIMIT"
-#define SEND_MAIL               "MAIL"
+#define SEND_MAIL               "SENDMAIL"
 #define SEND_SCREENSHOT         "SCREEN"
 #define ORDER_CLOSE             "ORDRCLOSE"
 #define OBJECT_ACTIVATE         "OBJACT"
@@ -117,25 +117,25 @@ int       _OBJECT_TYPES[] =
 string   _ACTION_LANGUAGE_COMMANDS[] = 
 {
    BUY_STOP,
-//usage: BUY_STOP*ORDER_ID new odred id[*SEND_MAIL [text of mail][*SEND_SCREENSHOT [text for screenshot]]]
+//usage: BUYSTOP*ORDRID new odred id[*SENDMAIL [text of mail][*SCREEN [text for screenshot]]]
 
    BUY_LIMIT,
-//usage: BUY_LIMIT*ORDER_ID new odred id[*SEND_MAIL [text of mail][*SEND_SCREENSHOT [text for screenshot]]]
+//usage: BUYLIMIT*ORDRID new odred id[*SEND_MAIL [text of mail][*SEND_SCREENSHOT [text for screenshot]]]
 
    SELL_STOP,
-//usage: SELL_STOP*ORDER_ID new odred id[*SEND_MAIL [text of mail][*SEND_SCREENSHOT [text for screenshot]]]
+//usage: SELLSTOP*ORDRID new odred id[*SEND_MAIL [text of mail][*SEND_SCREENSHOT [text for screenshot]]]
 
    SELL_LIMIT,
-//usage: SELL_LIMIT*ORDER_ID new odred id[*SEND_MAIL [text of mail][*SEND_SCREENSHOT [text for screenshot]]]
+//usage: SELLLIMIT*ORDRID new odred id[*SEND_MAIL [text of mail][*SEND_SCREENSHOT [text for screenshot]]]
 
    SEND_MAIL,
-//usage: SEND_MAIL [text of mail][*SEND_SCREENSHOT [text for screenshot]]]
+//usage: SENDMAIL [text of mail][*SEND_SCREENSHOT [text for screenshot]]]
 
    SEND_SCREENSHOT,
-//usage: [*SEND_SCREENSHOT [text for screenshot]]
+//usage: [*SCREEN [text for screenshot]]
 
    ORDER_CLOSE,
-//usage: ORDER_CLOSE*ORDER_ID odred id to close[*SEND_MAIL [text of mail][*SEND_SCREENSHOT [text for screenshot]]]
+//usage: ORDRCLOSE*ORDRID odred id to close[*SEND_MAIL [text of mail][*SEND_SCREENSHOT [text for screenshot]]]
 
    OBJECT_ACTIVATE,
 //usage: OBJECT_ACTIVATE object id to activate[*SEND_MAIL [text of mail][*SEND_SCREENSHOT [text for screenshot]]]
@@ -214,7 +214,21 @@ int start()
       {
          _LAST_AUTO_SCREENSHOT_TIME = iTime(Symbol(), _AUTO_SCREENSHOT_PERIOD, 0);
          DeleteAllSreenshotFiles(StringConcatenate("", Period()));
-         MakeScreenShot(StringConcatenate("", Period()));
+         string screenshotname = MakeScreenShot(StringConcatenate("", Period()));
+
+//         SendPredefinedRecipientMail("Mail notification", "mail text");
+/*
+         string sendMailPath = "c:\\Program Files\\MetaTrader 4\\experts\\files\\";
+         string sendMailFile = "sendEmail.bat";
+         string attachmentPath = "\"c:\\Users\\stevo\\AppData\\Local\\VirtualStore\\Program Files\\MetaTrader 4\\experts\\files\\";
+         string sendMailAttachmentPath = StringConcatenate(attachmentPath, screenshotname, "\"");
+         string sendMailSubject = "subjekt";
+         string sendMailText = "text mailu";
+         string sendMailTextRecipients = "radorybar@gmail.com";
+         string sendMailparameters = StringConcatenate(" -t ", sendMailTextRecipients, " -u ", sendMailSubject, " -m ", sendMailText, " -a ", sendMailAttachmentPath);
+         
+         int sent = ShellExecuteA(0,"open", sendMailFile, sendMailparameters, sendMailPath, 3); //
+*/
       }
       
       if(LASTASK == Ask && LASTBID == Bid)
@@ -252,6 +266,7 @@ int start()
       }
       for(i = 0; i < ArraySize(BidActionStrings); i++)
       {
+         //Print(BidActionStrings);
          if(ParseActions(BidActionStrings[i], ParsedActions))
             ExecuteActions(BidCrossedObjectNames[i], ParsedActions, false);
       }
@@ -870,7 +885,7 @@ string ParseActionText(string ActionItem)
 //      Print(stringToLowerCase(ActionItem), " ", stringToLowerCase(_ACTION_LANGUAGE_COMMANDS[j]), " ", StringFind(stringToLowerCase(ActionItem), stringToLowerCase(_ACTION_LANGUAGE_COMMANDS[j])) > -1);
       if(stringContainsIgnoreCase(ActionItem, _ACTION_LANGUAGE_COMMANDS[j]))
       {
-//         Print("ActionItem: ", ActionItem, " _ACTION_LANGUAGE_COMMANDS[j]: ", _ACTION_LANGUAGE_COMMANDS[j]);
+         Print("ActionItem: ", ActionItem, " _ACTION_LANGUAGE_COMMANDS[j]: ", _ACTION_LANGUAGE_COMMANDS[j]);
 //if action keyword found, cut it from the result action text
          result = StringTrimLeft(StringTrimRight(StringSubstr(ActionItem, stringFindIgnoreCase(ActionItem, _ACTION_LANGUAGE_COMMANDS[j]) + StringLen(_ACTION_LANGUAGE_COMMANDS[j]) + 1)));
          
@@ -1188,9 +1203,26 @@ bool SendPredefinedRecipientMail(string SUBJECT, string TEXT, string ATTACHMENT_
 bool MailNotification(string TO, string SUBJECT = "", string TEXT = "", string ATTACHMENT_PATH = "", string ATTACHMENT_TITLE = "")
 {
    bool result = false;
+
+// string ATTACHMENT_PATH = "", string ATTACHMENT_TITLE = ""
+// currently unused
    
-   int sent = gSendMail("default", TO, SUBJECT, TEXT, ATTACHMENT_PATH, ATTACHMENT_TITLE);
-//   Print(sent);
+//   int sent = gSendMail("default", TO, SUBJECT, TEXT, ATTACHMENT_PATH, ATTACHMENT_TITLE);
+
+   string screenshotname = MakeScreenShot("NOTIFICATION");
+
+   string sendMailPath = "c:\\Program Files\\MetaTrader 4\\experts\\files\\";
+   string sendMailFile = "sendEmail.bat";
+//   string attachmentPath = "\"c:\\Users\\stevo\\AppData\\Local\\VirtualStore\\Program Files\\MetaTrader 4\\experts\\files\\";
+   string attachmentPath = "\"c:\\Program Files\\MetaTrader 4\\experts\\files\\";
+   string sendMailAttachmentPath = StringConcatenate(attachmentPath, screenshotname, "\"");
+   string sendMailSubject = SUBJECT;
+   string sendMailText = TEXT;
+   string sendMailTextRecipients = TO;
+   string sendMailparameters = StringConcatenate(" -t ", sendMailTextRecipients, " -u ", sendMailSubject, " -m ", sendMailText, " -a ", sendMailAttachmentPath);
+
+   int sent = ShellExecuteA(0,"open", sendMailFile, sendMailparameters, sendMailPath, 3); 
+
    if(sent == 1)
    {
       result = true;
@@ -1198,7 +1230,7 @@ bool MailNotification(string TO, string SUBJECT = "", string TEXT = "", string A
    }
    else
       ErrorCheckup();
-   
+         
    return(result);
 }
 
